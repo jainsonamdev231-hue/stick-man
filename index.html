@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stickman Chronicles: Rivals & Shadow Forge</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Main Game Screen -->
+        <div class="game-wrapper">
+            <!-- Top Navigation & Status Bar -->
+            <div class="hud">
+                <div class="hud-left">
+                    <span class="badge" id="playerBadge">Hero: Unclaimed</span>
+                    <span class="class-badge" id="classBadge">Class: Vanguard</span>
+                    <span class="mode-tag" id="modeDisplay">Story Mode - Chapter 1</span>
+                </div>
+
+                <!-- Rivals 5-Round Scoreboard -->
+                <div class="rivals-scoreboard" id="rivalsScoreboard">
+                    <span class="team-blue">TEAM HERO: <b id="allyRoundScore">0</b></span>
+                    <span class="vs-pill">FIRST TO 5 WINS</span>
+                    <span class="team-red">RIVALS: <b id="enemyRoundScore">0</b></span>
+                </div>
+
+                <div class="hud-stats">
+                    <div class="bar-wrap">
+                        <span>HP</span>
+                        <div class="bar"><div id="hpBar" class="fill hp-fill"></div></div>
+                    </div>
+                    <div class="bar-wrap">
+                        <span>ENERGY</span>
+                        <div class="bar"><div id="manaBar" class="fill mana-fill"></div></div>
+                    </div>
+                    <div class="stat-pill coin-pill" title="Earned ONLY by defeating rivals in Arena matches!">
+                        Arena Coins: <b id="coinText">0</b>
+                    </div>
+                    <div class="stat-pill core-pill" title="10% Drop from Story Mode Boss!">
+                        Boss Cores: <b id="coreText">0</b>
+                    </div>
+                    <div class="stat-pill motion-pill" id="motionStatus">
+                        10% Boss Motion: <b>Locked</b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Mode Toolbar -->
+            <div class="toolbar">
+                <button class="tool-btn active-tab" id="btnStoryMode">Story Mode (Boss Drop)</button>
+                <button class="tool-btn" id="btnRivalsMenu">Rivals Arena (1v1 to 5v5)</button>
+                <button class="tool-btn" id="btnForgeModal">The Forge & Gun Smith</button>
+                <button class="tool-btn" id="btnClassModal">Switch Class</button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="canvas-box">
+                <canvas id="gameCanvas" width="900" height="460"></canvas>
+
+                <!-- 1. Unique Username Login & Initial Class Modal -->
+                <div id="loginModal" class="modal">
+                    <div class="modal-card wide-card">
+                        <h2>Stickman Chronicles: Rivals & Forge</h2>
+                        <p class="subtitle">Claim your one-time unique Hero Name and select your combat class!</p>
+                        <input type="text" id="usernameInput" placeholder="Enter unique Hero Name..." maxlength="16">
+                        
+                        <div class="class-select-grid" id="initialClassGrid">
+                            <div class="class-option selected" data-class="Vanguard">
+                                <h4>Vanguard</h4>
+                                <p>+40 Max HP & Heavy Blade</p>
+                            </div>
+                            <div class="class-option" data-class="Shadow Assassin">
+                                <h4>Shadow Assassin</h4>
+                                <p>High Speed & Crit Slash</p>
+                            </div>
+                            <div class="class-option" data-class="Master Forger">
+                                <h4>Master Forger</h4>
+                                <p>+25% Crafted Weapon DMG (Combat Smith, No Mining)</p>
+                            </div>
+                            <div class="class-option" data-class="Arcane Gunner">
+                                <h4>Arcane Gunner</h4>
+                                <p>Fast Energy Regen & Gun Mastery</p>
+                            </div>
+                        </div>
+
+                        <p id="loginError" class="error-text"></p>
+                        <button id="claimBtn" class="primary-btn">Claim Unique Identity & Enter</button>
+                    </div>
+                </div>
+
+                <!-- 2. Story Dialogue Box -->
+                <div id="dialogueModal" class="dialogue-overlay hidden">
+                    <div class="dialogue-box">
+                        <h4 id="speakerName">Elder Stick</h4>
+                        <p id="dialogueText">Welcome, warrior...</p>
+                        <button id="nextDialogueBtn" class="small-btn">Continue [Enter]</button>
+                    </div>
+                </div>
+
+                <!-- 3. Rivals Matchmaking Modal (1v1, 2v2, 3v3, 4v4, 5v5) -->
+                <div id="rivalsModal" class="modal hidden">
+                    <div class="modal-card wide-card">
+                        <h2>Rivals Arena Matchmaking</h2>
+                        <p class="subtitle">First team to win <b>5 Rounds</b> wins the series! Defeating Rivals here is the <b>ONLY</b> way to earn Forge Coins.</p>
+                        <div class="arena-grid">
+                            <button class="arena-btn" data-size="1"><b>1 vs 1</b><span>Solo Duel (+15 Coins/Kill)</span></button>
+                            <button class="arena-btn" data-size="2"><b>2 vs 2</b><span>Wingman Clash (+20 Coins/Kill)</span></button>
+                            <button class="arena-btn" data-size="3"><b>3 vs 3</b><span>Trio Skirmish (+25 Coins/Kill)</span></button>
+                            <button class="arena-btn" data-size="4"><b>4 vs 4</b><span>Squad Warfare (+30 Coins/Kill)</span></button>
+                            <button class="arena-btn" data-size="5"><b>5 vs 5</b><span>All-Out Rivals (+35 Coins/Kill)</span></button>
+                        </div>
+                        <button id="closeRivalsBtn" class="secondary-btn">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- 4. The Forge & Custom Weapon/Gun Crafter (No Mining) -->
+                <div id="forgeModal" class="modal hidden">
+                    <div class="modal-card wide-card">
+                        <h2>The Master Forge & Gun Customizer</h2>
+                        <p class="subtitle">Pure Weapon Smithing (No Ores/Mining). Craft Melee Weapons with <b>Arena Coins</b>. Craft Guns using <b>Arena Coins + 10% Boss Drop Core</b>!</p>
+                        
+                        <div class="customizer-bar">
+                            <label>Custom Weapon Tint: <input type="color" id="weaponColorPicker" value="#58a6ff"></label>
+                            <label>Mod Upgrade: 
+                                <select id="weaponModSelect">
+                                    <option value="Balanced">Balanced Frame (+5 DMG)</option>
+                                    <option value="Overclocked">Overclocked Barrel (+12 DMG)</option>
+                                    <option value="Vampiric">Crimson Edge (+8 DMG & Lifesteal)</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="forge-grid">
+                            <!-- Melee Weapons (Coins Only) -->
+                            <div class="forge-item">
+                                <h4>Shadow Katana (Melee)</h4>
+                                <p>Fast Crit Strikes | 35 DMG</p>
+                                <button class="craft-btn" data-wpn="Shadow Katana" data-type="melee" data-dmg="35" data-coins="30" data-cores="0">
+                                    Forge (30 Coins)
+                                </button>
+                            </div>
+                            <div class="forge-item">
+                                <h4>Titan Greatsword (Melee)</h4>
+                                <p>Massive Reach | 50 DMG</p>
+                                <button class="craft-btn" data-wpn="Titan Greatsword" data-type="melee" data-dmg="50" data-coins="60" data-cores="0">
+                                    Forge (60 Coins)
+                                </button>
+                            </div>
+                            <div class="forge-item">
+                                <h4>Forge War Hammer (Melee)</h4>
+                                <p>Shockwave Impact | 65 DMG</p>
+                                <button class="craft-btn" data-wpn="Forge War Hammer" data-type="melee" data-dmg="65" data-coins="90" data-cores="0">
+                                    Forge (90 Coins)
+                                </button>
+                            </div>
+
+                            <!-- Guns (Requires Arena Coins + 10% Boss Drop Core) -->
+                            <div class="forge-item gun-item">
+                                <h4>Phantom Dual Pistols (Gun)</h4>
+                                <p>Rapid Fire | 42 Bullet DMG</p>
+                                <button class="craft-btn" data-wpn="Phantom Pistols" data-type="gun" data-dmg="42" data-coins="50" data-cores="1">
+                                    Craft Gun (50 Coins + 1 Boss Core)
+                                </button>
+                            </div>
+                            <div class="forge-item gun-item">
+                                <h4>Void Plasma Rifle (Gun)</h4>
+                                <p>High Velocity | 68 Bullet DMG</p>
+                                <button class="craft-btn" data-wpn="Void Plasma Rifle" data-type="gun" data-dmg="68" data-coins="100" data-cores="1">
+                                    Craft Gun (100 Coins + 1 Boss Core)
+                                </button>
+                            </div>
+                            <div class="forge-item gun-item">
+                                <h4>Omega Railcannon (Gun)</h4>
+                                <p>Piercing Beam | 110 Bullet DMG</p>
+                                <button class="craft-btn" data-wpn="Omega Railcannon" data-type="gun" data-coins="160" data-dmg="110" data-cores="2">
+                                    Craft Gun (160 Coins + 2 Boss Cores)
+                                </button>
+                            </div>
+                        </div>
+
+                        <p id="forgeStatusMsg" class="status-msg"></p>
+                        <button id="closeForgeBtn" class="secondary-btn">Return to Battle</button>
+                    </div>
+                </div>
+
+                <!-- 5. Class Switcher Modal -->
+                <div id="classModal" class="modal hidden">
+                    <div class="modal-card">
+                        <h2>Switch Hero Class</h2>
+                        <p class="subtitle">Change your combat style at any time.</p>
+                        <div class="shop-grid">
+                            <button class="shop-btn class-switch-btn" data-class="Vanguard"><b>Vanguard</b> (+40 Max HP & Shielded Frame)</button>
+                            <button class="shop-btn class-switch-btn" data-class="Shadow Assassin"><b>Shadow Assassin</b> (+35% Move Speed & Crit Slash)</button>
+                            <button class="shop-btn class-switch-btn" data-class="Master Forger"><b>Master Forger</b> (+25% Forged Weapon & Gun Damage)</button>
+                            <button class="shop-btn class-switch-btn" data-class="Arcane Gunner"><b>Arcane Gunner</b> (Rapid Energy & +20% Bullet Speed)</button>
+                        </div>
+                        <button id="closeClassBtn" class="secondary-btn">Close</button>
+                    </div>
+                </div>
+
+                <!-- 6. Banner Notification / End Screen -->
+                <div id="endModal" class="modal hidden">
+                    <div class="modal-card">
+                        <h2 id="endTitle">Battle Complete</h2>
+                        <p id="endDesc">Results recorded.</p>
+                        <div class="end-actions">
+                            <button id="replayStoryBtn" class="primary-btn">Replay Story Chapter (Farm 10% Boss Drop)</button>
+                            <button id="openArenaFromEndBtn" class="secondary-btn">Play Rivals Arena (Earn Coins)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Footer -->
+            <div class="controls-bar">
+                <span><b>A / D</b>: Move</span>
+                <span><b>W / Space</b>: Jump</span>
+                <span><b>J</b>: Primary Attack (Sword or Equipped Gun)</span>
+                <span><b>K</b>: Class Skill / Plasma</span>
+                <span><b>L</b>: Shadow Dash</span>
+                <span><b>M</b>: Activate 10% Boss Drop Motion (When Unlocked)</span>
+            </div>
+        </div>
+
+        <!-- Online / Local Hall of Heroes Leaderboard -->
+        <div class="sidebar">
+            <h3>Hall of Heroes</h3>
+            <p class="side-note">Unique Heroes & Total Prestige</p>
+            <div class="equipped-card">
+                <div>Equipped: <b id="equippedWpnName">Starter Blade</b></div>
+                <div>Weapon Type: <b id="equippedWpnType">Melee</b></div>
+                <div>Damage: <b id="equippedWpnDmg">25</b></div>
+            </div>
+            <ul id="leaderboardList">
+                <li>No heroes registered yet...</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
