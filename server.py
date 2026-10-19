@@ -1,78 +1,53 @@
 import http.server
 import socketserver
 import json
+import random
 import os
 
 PORT = 8000
-DB_FILE = "players_db.json"
 
-def load_players():
-    if not os.path.exists(DB_FILE):
-        return []
-    with open(DB_FILE, "r", encoding="utf-8") as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return []
+# Authoritative Race Rarity & Buff Table
+RACES = [
+    {"name": "Human", "rarity": "Common", "chance": 45, "hpMult": 1.0, "dmgMult": 1.0, "spdMult": 1.0, "rangeBonus": 0, "regen": 0, "lifesteal": 0, "color": "#3498db", "aura": None},
+    {"name": "Beastkin", "rarity": "Uncommon", "chance": 25, "hpMult": 1.25, "dmgMult": 1.2, "spdMult": 1.35, "rangeBonus": 5, "regen": 0, "lifesteal": 0, "color": "#e67e22", "aura": "#2ecc71"},
+    {"name": "Frost Elf", "rarity": "Rare", "chance": 15, "hpMult": 1.35, "dmgMult": 1.5, "spdMult": 1.25, "rangeBonus": 20, "regen": 0.03, "lifesteal": 0, "color": "#00cec9", "aura": "#3498db"},
+    {"name": "Shadow Demon", "rarity": "Epic", "chance": 9, "hpMult": 1.6, "dmgMult": 1.85, "spdMult": 1.3, "rangeBonus": 12, "regen": 0, "lifesteal": 0.15, "color": "#8e44ad", "aura": "#9b59b6"},
+    {"name": "Celestial", "rarity": "Legendary", "chance": 5, "hpMult": 2.2, "dmgMult": 2.3, "spdMult": 1.4, "rangeBonus": 22, "regen": 0.15, "lifesteal": 0.05, "color": "#f1c40f", "aura": "#f39c12"},
+    {"name": "Void Monarch", "rarity": "Mythic", "chance": 1, "hpMult": 3.2, "dmgMult": 3.5, "spdMult": 1.6, "rangeBonus": 35, "regen": 0.2, "lifesteal": 0.2, "color": "#e74c3c", "aura": "#ff0055"}
+]
 
-def save_players(players):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(players, f, indent=4)
-
-class StickmanGameServer(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/api/leaderboard":
-            players = load_players()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"players": players}).encode("utf-8"))
-        else:
-            super().do_GET()
+class GameServerHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory="static", **kwargs)
 
     def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = json.loads(body) if body else {}
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else "{}"
+        data = json.loads(body)
 
-        if self.path == "/api/claim":
-            username = data.get("username", "").strip()
-            players = load_players()
+        # Endpoint 1: Roll for a Race Reroll Spin
+        if self.path == '/api/reroll':
+            weights = [r["chance"] for r in RACES]
+            chosen_race = random.choices(RACES, weights=weights, k=1)[0]
+            self._send_json({"race": chosen_race})
 
-            if any(p["username"].lower() == username.lower() for p in players):
-                self.send_response(409)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": f"Hero Name '{username}' is already claimed forever!"
-                }).encode("utf-8"))
-                return
+        # Endpoint 2: Roll Boss / Enemy Spin Drop Chance
+        elif self.path == '/api/boss-drop':
+            drop_chance = float(data.get("dropChance", 0.15))
+            dropped = random.random() <= drop_chance
+            self._send_json({"dropped": dropped})
 
-            players.append({"username": username, "score": 0})
-            save_players(players)
+        else:
+            self.send_error(404, "Endpoint not found")
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"players": players}).encode("utf-8"))
-
-        elif self.path == "/api/score":
-            username = data.get("username", "").strip()
-            new_score = int(data.get("score", 0))
-            players = load_players()
-
-            for p in players:
-                if p["username"] == username and new_score > p["score"]:
-                    p["score"] = new_score
-                    break
-
-            save_players(players)
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"players": players}).encode("utf-8"))
+    def _send_json(self, payload):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode('utf-8'))
 
 if __name__ == "__main__":
-    with socketserver.TCPServer(("", PORT), StickmanGameServer) as httpd:
-        print(f"Stickman Rivals & Forge Server running at http://localhost:{PORT}")
+    os.makedirs("static", exist_ok=True)
+    with socketserver.TCPServer(("", PORT), GameServerHandler) as httpd:
+        print(f"RPG Server running at http://localhost:{PORT}")
         httpd.serve_forever()
