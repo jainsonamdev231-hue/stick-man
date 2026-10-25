@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RPG Story, Shooter & Race Awakening</title>
+    <title>Stickman RPG: Story, Shooter & Race Awakening</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,20 +20,20 @@
                 <div class="hud-group">
                     <div class="stat-badge">HP: <span id="ui-hp">120 / 120</span></div>
                     <div class="stat-badge">DMG: <span id="ui-dmg">28</span></div>
-                    <div class="stat-badge" title="Earned ONLY in 1v1-5v5 Arena Matches">Coins: <span id="ui-coins" style="color:#2ecc71;">0</span></div>
-                    <div class="stat-badge" title="10% Drop from Story Bosses">Cores: <span id="ui-cores" style="color:#e056fd;">0</span></div>
-                    <div class="stat-badge">Spins: <span id="ui-spins">0</span></div>
+                    <div class="stat-badge">Coins: <span id="ui-coins" style="color:#2ecc71;">0</span></div>
+                    <div class="stat-badge">Cores: <span id="ui-cores" style="color:#e056fd;">0</span></div>
+                    <div class="stat-badge">Spins: <span id="ui-spins">1</span></div>
                 </div>
             </div>
 
-            <!-- Action Menu Bar -->
+            <!-- Top Action Menu Bar -->
             <div class="menu-bar">
-                <button class="menu-btn active" onclick="returnToStoryMode()">Story World</button>
-                <button class="menu-btn" onclick="openRerollModal()">Race Spin Menu</button>
-                <button class="menu-btn" onclick="openForgeModal()">The Forge & Guns</button>
-                <button class="menu-btn" onclick="openArenaModal()">Arena (1v1 - 5v5)</button>
-                <button class="menu-btn" onclick="openClassModal()">Classes</button>
-                <button class="menu-btn mode-switch" onclick="toggleAttackStyle()">Weapon: <span id="ui-atk-mode">GUN SHOOTER</span> [Q]</button>
+                <button type="button" class="menu-btn active" id="btn-story">Story World</button>
+                <button type="button" class="menu-btn" id="btn-spin-menu">Race Spin Menu</button>
+                <button type="button" class="menu-btn" id="btn-forge-menu">The Forge & Guns</button>
+                <button type="button" class="menu-btn" id="btn-arena-menu">Arena (1v1 - 5v5)</button>
+                <button type="button" class="menu-btn" id="btn-class-menu">Classes</button>
+                <button type="button" class="menu-btn mode-switch" id="btn-atk-mode">Weapon: <span id="ui-atk-mode">GUN SHOOTER</span></button>
             </div>
 
             <!-- Game Canvas Wrapper -->
@@ -42,28 +42,28 @@
 
                 <!-- Story Quest Tracker -->
                 <div id="quest-tracker">
-                    <h4 id="quest-title">Main Story</h4>
-                    <p id="quest-desc">Walk up to Elder Kael (Gold Stickman) and press [E] to receive your first task.</p>
+                    <h4 id="quest-title">Chapter 1: Awakening</h4>
+                    <p id="quest-desc">Walk up to Elder Kael (Gold Stickman) and press [E] or tap TALK.</p>
                 </div>
 
-                <!-- 5-Round Series Scoreboard (Shown during 1v1-5v5 Arena Matches) -->
+                <!-- 5-Round Series Scoreboard -->
                 <div id="series-banner" class="hidden">
                     <span class="t-ally">HERO TEAM: <b id="score-ally">0</b></span>
                     <span class="t-mid">FIRST TO 5 WINS</span>
-                    <span class="t-enemy">OPPONENTS: <b id="score-enemy">0</b></span>
+                    <span class="t-enemy">RIVALS: <b id="score-enemy">0</b></span>
                 </div>
 
                 <!-- Floating Toast Notification -->
                 <div id="toast">Notification</div>
 
                 <!-- 1. Unique One-Time Username Login Modal -->
-                <div id="login-modal" class="full-modal" style="display:flex;">
+                <div id="login-modal" class="full-modal">
                     <div class="modal-card">
                         <h2 class="modal-title">RPG Story & Race Awakening</h2>
                         <p class="modal-subtitle">Claim your one-time unique Hero Name to enter the realm!</p>
-                        <input type="text" id="username-input" placeholder="Enter unique Hero Name..." maxlength="16">
+                        <input type="text" id="username-input" placeholder="Enter unique Hero Name..." maxlength="16" autocomplete="off">
                         <p id="login-error" class="error-text"></p>
-                        <button class="btn" style="width:100%;" onclick="claimUniqueName()">Claim Identity & Start</button>
+                        <button type="button" id="claim-btn" class="btn" style="width:100%;">Claim Identity & Start</button>
                     </div>
                 </div>
 
@@ -71,12 +71,12 @@
                 <div id="dialogue-modal">
                     <div id="dialogue-speaker">Elder Kael</div>
                     <div id="dialogue-text">Welcome, traveller.</div>
-                    <button class="btn" onclick="acceptDialogue()">Continue [E]</button>
+                    <button type="button" class="btn" id="btn-dialogue-next">Continue [E]</button>
                 </div>
 
                 <!-- 3. Race Reroll Gacha Modal -->
-                <div id="reroll-modal" class="full-modal">
-                    <div id="reroll-box" class="modal-card">
+                <div id="reroll-modal" class="full-modal hidden">
+                    <div class="modal-card">
                         <h2 class="modal-title">Race Awakening Chamber</h2>
                         <p class="modal-subtitle">Defeat story bosses for a chance to drop Race Spins!</p>
                         
@@ -95,20 +95,20 @@
                         </div>
 
                         <div class="modal-actions">
-                            <button class="btn btn-reroll" id="spin-btn" onclick="triggerRaceSpin()">Spin Race (1 Spin)</button>
-                            <button class="btn btn-close" onclick="closeAllModals()">Return to Game</button>
+                            <button type="button" class="btn btn-reroll" id="spin-btn">Spin Race (1 Spin)</button>
+                            <button type="button" class="btn btn-close close-modal-btn">Return to Game</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- 4. The Forge & Gun Customizer Modal (No Mining) -->
-                <div id="forge-modal" class="full-modal">
+                <div id="forge-modal" class="full-modal hidden">
                     <div class="modal-card wide-card">
                         <h2 class="modal-title">The Forge & Gun Customizer</h2>
-                        <p class="modal-subtitle">No ore mining! Craft Melee weapons with <b>Coins</b> (earned in Arena 1v1-5v5). Craft Guns using <b>Coins + 10% Boss Drop Cores</b>!</p>
+                        <p class="modal-subtitle">No mining! Craft Melee weapons with <b>Coins</b> (earned in Arena 1v1-5v5). Craft Guns using <b>Coins + 10% Boss Drop Cores</b>!</p>
 
                         <div class="customizer-bar">
-                            <label>Custom Weapon & Bullet Color: <input type="color" id="custom-color" value="#00d2ff"></label>
+                            <label>Weapon & Bullet Color: <input type="color" id="custom-color" value="#00d2ff"></label>
                             <label>Weapon Mod:
                                 <select id="custom-mod">
                                     <option value="Rapid">Rapid Fire (+25% Fire Speed)</option>
@@ -120,70 +120,70 @@
 
                         <div class="forge-grid">
                             <div class="forge-box">
-                                <h4>Starter Pulse Pistol (Gun)</h4>
+                                <h4>Pulse Pistol (Starter Gun)</h4>
                                 <p>Single Shot | +10 DMG</p>
-                                <button class="btn" onclick="craftWeapon('Pulse Pistol', 'gun', 10, 0, 0, 14)">Equip Free</button>
+                                <button type="button" class="btn craft-wpn-btn" data-name="Pulse Pistol" data-type="gun" data-dmg="10" data-coins="0" data-cores="0" data-cd="14">Equip Free</button>
                             </div>
                             <div class="forge-box">
                                 <h4>Shadow Katana (Melee)</h4>
                                 <p>Fast Slash | +24 DMG</p>
-                                <button class="btn" onclick="craftWeapon('Shadow Katana', 'melee', 24, 30, 0, 18)">Forge (30 Coins)</button>
+                                <button type="button" class="btn craft-wpn-btn" data-name="Shadow Katana" data-type="melee" data-dmg="24" data-coins="30" data-cores="0" data-cd="18">Forge (30 Coins)</button>
                             </div>
                             <div class="forge-box">
                                 <h4>Forge War Hammer (Melee)</h4>
                                 <p>Heavy Impact | +42 DMG</p>
-                                <button class="btn" onclick="craftWeapon('War Hammer', 'melee', 42, 60, 0, 22)">Forge (60 Coins)</button>
+                                <button type="button" class="btn craft-wpn-btn" data-name="War Hammer" data-type="melee" data-dmg="42" data-coins="60" data-cores="0" data-cd="22">Forge (60 Coins)</button>
                             </div>
                             <div class="forge-box gun-box">
                                 <h4>Dual Phantom Guns (Gun)</h4>
                                 <p>Rapid Fire | +38 DMG</p>
-                                <button class="btn btn-reroll" onclick="craftWeapon('Phantom Guns', 'gun', 38, 45, 1, 10)">45 Coins + 1 Boss Core</button>
+                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Phantom Guns" data-type="gun" data-dmg="38" data-coins="45" data-cores="1" data-cd="10">45 Coins + 1 Core</button>
                             </div>
                             <div class="forge-box gun-box">
                                 <h4>Void Assault Rifle (Gun)</h4>
                                 <p>High Velocity | +62 DMG</p>
-                                <button class="btn btn-reroll" onclick="craftWeapon('Void Rifle', 'gun', 62, 90, 1, 8)">90 Coins + 1 Boss Core</button>
+                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Void Rifle" data-type="gun" data-dmg="62" data-coins="90" data-cores="1" data-cd="8">90 Coins + 1 Core</button>
                             </div>
                             <div class="forge-box gun-box">
                                 <h4>Omega Railcannon (Gun)</h4>
                                 <p>Mythic Beam | +105 DMG</p>
-                                <button class="btn btn-reroll" onclick="craftWeapon('Omega Railcannon', 'gun', 105, 150, 2, 12)">150 Coins + 2 Boss Cores</button>
+                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Omega Railcannon" data-type="gun" data-dmg="105" data-coins="150" data-cores="2" data-cd="12">150 Coins + 2 Cores</button>
                             </div>
                         </div>
 
                         <p id="forge-status" class="status-msg"></p>
-                        <button class="btn btn-close" onclick="closeAllModals()">Return to Game</button>
+                        <button type="button" class="btn btn-close close-modal-btn">Return to Game</button>
                     </div>
                 </div>
 
-                <!-- 5. 5-Round Arena Matchmaking Modal (1v1, 2v2, 3v3, 4v4, 5v5) -->
-                <div id="arena-modal" class="full-modal">
+                <!-- 5. 5-Round Arena Matchmaking Modal (1v1 to 5v5) -->
+                <div id="arena-modal" class="full-modal hidden">
                     <div class="modal-card wide-card">
                         <h2 class="modal-title">Squad Arena (First to 5 Wins)</h2>
                         <p class="modal-subtitle">Defeating opponents in 1v1 to 5v5 matches is the <b>ONLY</b> way to earn Forge Coins! First team to win 5 rounds wins the series.</p>
                         <div class="arena-grid">
-                            <button class="arena-btn" onclick="startArenaSeries(1)"><b>1 vs 1</b><span>+15 Coins / Kill</span></button>
-                            <button class="arena-btn" onclick="startArenaSeries(2)"><b>2 vs 2</b><span>+20 Coins / Kill</span></button>
-                            <button class="arena-btn" onclick="startArenaSeries(3)"><b>3 vs 3</b><span>+25 Coins / Kill</span></button>
-                            <button class="arena-btn" onclick="startArenaSeries(4)"><b>4 vs 4</b><span>+30 Coins / Kill</span></button>
-                            <button class="arena-btn" onclick="startArenaSeries(5)"><b>5 vs 5</b><span>+35 Coins / Kill</span></button>
+                            <button type="button" class="arena-btn start-arena-btn" data-size="1"><b>1 vs 1</b><span>+15 Coins / Kill</span></button>
+                            <button type="button" class="arena-btn start-arena-btn" data-size="2"><b>2 vs 2</b><span>+20 Coins / Kill</span></button>
+                            <button type="button" class="arena-btn start-arena-btn" data-size="3"><b>3 vs 3</b><span>+25 Coins / Kill</span></button>
+                            <button type="button" class="arena-btn start-arena-btn" data-size="4"><b>4 vs 4</b><span>+30 Coins / Kill</span></button>
+                            <button type="button" class="arena-btn start-arena-btn" data-size="5"><b>5 vs 5</b><span>+35 Coins / Kill</span></button>
                         </div>
-                        <button class="btn btn-close" onclick="closeAllModals()">Cancel</button>
+                        <button type="button" class="btn btn-close close-modal-btn">Cancel</button>
                     </div>
                 </div>
 
                 <!-- 6. Class Selector Modal -->
-                <div id="class-modal" class="full-modal">
+                <div id="class-modal" class="full-modal hidden">
                     <div class="modal-card">
                         <h2 class="modal-title">Select Combat Class</h2>
                         <p class="modal-subtitle">Choose your Stickman specialization (No mining effects):</p>
                         <div class="class-list">
-                            <button class="class-item" onclick="setHeroClass('Arcane Gunner')"><b>Arcane Gunner</b> — +25% Fire Rate & Bullet Speed</button>
-                            <button class="class-item" onclick="setHeroClass('Master Forger')"><b>Master Forger</b> — +30% Forged Weapon & Gun Damage</button>
-                            <button class="class-item" onclick="setHeroClass('Vanguard')"><b>Vanguard</b> — +50 Max HP & Frontline Armor</button>
-                            <button class="class-item" onclick="setHeroClass('Shadow Assassin')"><b>Shadow Assassin</b> — +30% Move Speed & Quick Dash</button>
+                            <button type="button" class="class-item pick-class-btn" data-class="Arcane Gunner"><b>Arcane Gunner</b> — +25% Fire Rate & Bullet Speed</button>
+                            <button type="button" class="class-item pick-class-btn" data-class="Master Forger"><b>Master Forger</b> — +30% Forged Weapon & Gun Damage</button>
+                            <button type="button" class="class-item pick-class-btn" data-class="Vanguard"><b>Vanguard</b> — +50 Max HP & Frontline Armor</button>
+                            <button type="button" class="class-item pick-class-btn" data-class="Shadow Assassin"><b>Shadow Assassin</b> — +30% Move Speed & Quick Dash</button>
                         </div>
-                        <button class="btn btn-close" onclick="closeAllModals()">Close</button>
+                        <button type="button" class="btn btn-close close-modal-btn">Close</button>
                     </div>
                 </div>
 
@@ -195,18 +195,18 @@
             <!-- Mobile On-Screen Touch Gamepad -->
             <div class="mobile-controls">
                 <div class="dpad">
-                    <button class="t-btn" id="t-up">▲</button>
+                    <button type="button" class="t-btn" id="t-up">▲</button>
                     <div class="dpad-row">
-                        <button class="t-btn" id="t-left">◀</button>
-                        <button class="t-btn" id="t-down">▼</button>
-                        <button class="t-btn" id="t-right">▶</button>
+                        <button type="button" class="t-btn" id="t-left">◀</button>
+                        <button type="button" class="t-btn" id="t-down">▼</button>
+                        <button type="button" class="t-btn" id="t-right">▶</button>
                     </div>
                 </div>
                 <div class="touch-actions">
-                    <button class="t-btn atk-btn" id="t-atk">🔫 FIRE / ATK</button>
-                    <button class="t-btn talk-btn" id="t-talk">💬 TALK [E]</button>
-                    <button class="t-btn mode-btn" onclick="toggleAttackStyle()">🔄 GUN/BLADE</button>
-                    <button class="t-btn motion-btn" onclick="toggleBossMotion()">🔥 10% MOTION</button>
+                    <button type="button" class="t-btn atk-btn" id="t-atk">🔫 FIRE / ATK</button>
+                    <button type="button" class="t-btn talk-btn" id="t-talk">💬 TALK [E]</button>
+                    <button type="button" class="t-btn mode-btn" id="t-mode">🔄 GUN/BLADE</button>
+                    <button type="button" class="t-btn motion-btn" id="t-motion">🔥 10% MOTION</button>
                 </div>
             </div>
         </div>
@@ -225,6 +225,7 @@
         </div>
     </div>
 
-    <script src="game.js"></script>
+    <!-- Links to both script.js and game.js safely so whichever filename you use on GitHub works! -->
+    <script src="script.js"></script>
 </body>
 </html>
