@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stickman RPG: Story, Shooter & Race Awakening</title>
+    <title>Stickman Force RPG: Online Multiplayer & Race Awakening</title>
+    <!-- PeerJS for Live Internet Multiplayer on GitHub Pages -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,8 +15,8 @@
             <div id="hud">
                 <div class="hud-group">
                     <div class="stat-badge">Hero: <span id="ui-hero">Guest</span></div>
-                    <div class="stat-badge">Zone: <span id="ui-zone">Starter Village</span></div>
-                    <div class="stat-badge">Race: <span id="ui-race" class="rarity-Common">Human (Common)</span></div>
+                    <div class="stat-badge">Level: <span id="ui-zone">Lv.1 Starter Outpost</span></div>
+                    <div class="stat-badge">Race: <span id="ui-race" class="rarity-Common">Human</span></div>
                     <div class="stat-badge">Class: <span id="ui-class" style="color:#d2a8ff;">Arcane Gunner</span></div>
                 </div>
                 <div class="hud-group">
@@ -26,14 +28,15 @@
                 </div>
             </div>
 
-            <!-- Top Action Menu Bar -->
+            <!-- Action Menu Bar -->
             <div class="menu-bar">
                 <button type="button" class="menu-btn active" id="btn-story">Story World</button>
-                <button type="button" class="menu-btn" id="btn-spin-menu">Race Spin Menu</button>
-                <button type="button" class="menu-btn" id="btn-forge-menu">The Forge & Guns</button>
-                <button type="button" class="menu-btn" id="btn-arena-menu">Arena (1v1 - 5v5)</button>
-                <button type="button" class="menu-btn" id="btn-class-menu">Classes</button>
-                <button type="button" class="menu-btn mode-switch" id="btn-atk-mode">Weapon: <span id="ui-atk-mode">GUN SHOOTER</span></button>
+                <button type="button" class="menu-btn online-btn" id="btn-online">🌐 Online 2km+ PvP</button>
+                <button type="button" class="menu-btn" id="btn-reroll">Race Spin</button>
+                <button type="button" class="menu-btn" id="btn-forge">The Forge</button>
+                <button type="button" class="menu-btn" id="btn-arena">Bot Arena (1v1-5v5)</button>
+                <button type="button" class="menu-btn" id="btn-class">Classes</button>
+                <button type="button" class="menu-btn mode-switch" id="btn-mode">Mode: <span id="ui-atk-mode">GUN</span> [Q]</button>
             </div>
 
             <!-- Game Canvas Wrapper -->
@@ -42,43 +45,64 @@
 
                 <!-- Story Quest Tracker -->
                 <div id="quest-tracker">
-                    <h4 id="quest-title">Chapter 1: Awakening</h4>
-                    <p id="quest-desc">Walk up to Elder Kael (Gold Stickman) and press [E] or tap TALK.</p>
+                    <h4 id="quest-title">NPC Quest Log</h4>
+                    <p id="quest-desc">Walk up to Commander Vance (Gold NPC) and press [E] or tap TALK.</p>
                 </div>
 
                 <!-- 5-Round Series Scoreboard -->
                 <div id="series-banner" class="hidden">
-                    <span class="t-ally">HERO TEAM: <b id="score-ally">0</b></span>
+                    <span class="t-ally">YOU / ALLIES: <b id="score-ally">0</b></span>
                     <span class="t-mid">FIRST TO 5 WINS</span>
-                    <span class="t-enemy">RIVALS: <b id="score-enemy">0</b></span>
+                    <span class="t-enemy">RIVAL: <b id="score-enemy">0</b></span>
                 </div>
 
                 <!-- Floating Toast Notification -->
                 <div id="toast">Notification</div>
 
-                <!-- 1. Unique One-Time Username Login Modal -->
-                <div id="login-modal" class="full-modal">
+                <!-- 1. Instant Username Login Modal -->
+                <div id="login-modal" class="full-modal" style="display:flex;">
                     <div class="modal-card">
-                        <h2 class="modal-title">RPG Story & Race Awakening</h2>
-                        <p class="modal-subtitle">Claim your one-time unique Hero Name to enter the realm!</p>
-                        <input type="text" id="username-input" placeholder="Enter unique Hero Name..." maxlength="16" autocomplete="off">
+                        <h2 class="modal-title">Stickman Force RPG & Online</h2>
+                        <p class="modal-subtitle">Claim your unique Hero Name. This also creates your Online Room Code so friends 2km+ away can join you!</p>
+                        <input type="text" id="username-input" placeholder="Enter unique Hero Name..." maxlength="14" autocomplete="off">
                         <p id="login-error" class="error-text"></p>
                         <button type="button" id="claim-btn" class="btn" style="width:100%;">Claim Identity & Start</button>
                     </div>
                 </div>
 
-                <!-- 2. NPC Dialogue Box -->
+                <!-- 2. NPC Dialogue & Quest Reward Box -->
                 <div id="dialogue-modal">
-                    <div id="dialogue-speaker">Elder Kael</div>
-                    <div id="dialogue-text">Welcome, traveller.</div>
-                    <button type="button" class="btn" id="btn-dialogue-next">Continue [E]</button>
+                    <div id="dialogue-speaker">Commander Vance</div>
+                    <div id="dialogue-text">Welcome, recruit.</div>
+                    <div id="dialogue-reward" class="reward-banner hidden">Reward: +50 Coins & +1 Race Spin!</div>
+                    <button type="button" class="btn" id="btn-dialogue-next">Accept / Claim Reward [E]</button>
                 </div>
 
-                <!-- 3. Race Reroll Gacha Modal -->
-                <div id="reroll-modal" class="full-modal hidden">
+                <!-- 3. Live Online Multiplayer Modal (Play with Friends 2km+ Away) -->
+                <div id="online-modal" class="full-modal">
                     <div class="modal-card">
+                        <h2 class="modal-title" style="color:#00d2ff;">🌐 Live Online Multiplayer (WebRTC)</h2>
+                        <p class="modal-subtitle">Play with a friend anywhere over the internet! Share your Room Code or enter theirs below.</p>
+
+                        <div class="room-box">
+                            <div>Your Room Code: <b id="my-room-code" style="color:#f1c40f; font-size:18px;">Connecting...</b></div>
+                            <div id="online-status" style="font-size:12px; color:#2ecc71; margin-top:4px;">Ready for friend to join</div>
+                        </div>
+
+                        <input type="text" id="friend-code-input" placeholder="Enter Friend's Room Code..." autocomplete="off">
+                        <div class="modal-actions">
+                            <button type="button" class="btn" style="background:#00d2ff;" id="btn-connect-friend">Connect & Battle Friend</button>
+                            <button type="button" class="btn btn-reroll" id="btn-start-online-duel">Start 5-Round PvP Duel</button>
+                        </div>
+                        <button type="button" class="btn btn-close close-modal-btn" style="margin-top:12px; width:100%;">Return to Game</button>
+                    </div>
+                </div>
+
+                <!-- 4. Race Reroll Gacha Modal -->
+                <div id="reroll-modal" class="full-modal">
+                    <div id="reroll-box" class="modal-card">
                         <h2 class="modal-title">Race Awakening Chamber</h2>
-                        <p class="modal-subtitle">Defeat story bosses for a chance to drop Race Spins!</p>
+                        <p class="modal-subtitle">Complete NPC Quests and defeat Bosses to earn Race Spins!</p>
                         
                         <div id="spin-display">
                             <div id="spin-race-name" class="rarity-Common">Human (Starter)</div>
@@ -101,14 +125,14 @@
                     </div>
                 </div>
 
-                <!-- 4. The Forge & Gun Customizer Modal (No Mining) -->
-                <div id="forge-modal" class="full-modal hidden">
+                <!-- 5. The Forge & Gun Customizer Modal (No Mining) -->
+                <div id="forge-modal" class="full-modal">
                     <div class="modal-card wide-card">
                         <h2 class="modal-title">The Forge & Gun Customizer</h2>
-                        <p class="modal-subtitle">No mining! Craft Melee weapons with <b>Coins</b> (earned in Arena 1v1-5v5). Craft Guns using <b>Coins + 10% Boss Drop Cores</b>!</p>
+                        <p class="modal-subtitle">Craft Melee weapons with <b>Coins</b> (from NPC Quests & Arena). Craft Guns using <b>Coins + 10% Boss Drop Cores</b>!</p>
 
                         <div class="customizer-bar">
-                            <label>Weapon & Bullet Color: <input type="color" id="custom-color" value="#00d2ff"></label>
+                            <label>Custom Weapon & Bullet Color: <input type="color" id="custom-color" value="#00d2ff"></label>
                             <label>Weapon Mod:
                                 <select id="custom-mod">
                                     <option value="Rapid">Rapid Fire (+25% Fire Speed)</option>
@@ -120,7 +144,7 @@
 
                         <div class="forge-grid">
                             <div class="forge-box">
-                                <h4>Pulse Pistol (Starter Gun)</h4>
+                                <h4>Starter Pulse Pistol (Gun)</h4>
                                 <p>Single Shot | +10 DMG</p>
                                 <button type="button" class="btn craft-wpn-btn" data-name="Pulse Pistol" data-type="gun" data-dmg="10" data-coins="0" data-cores="0" data-cd="14">Equip Free</button>
                             </div>
@@ -137,17 +161,17 @@
                             <div class="forge-box gun-box">
                                 <h4>Dual Phantom Guns (Gun)</h4>
                                 <p>Rapid Fire | +38 DMG</p>
-                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Phantom Guns" data-type="gun" data-dmg="38" data-coins="45" data-cores="1" data-cd="10">45 Coins + 1 Core</button>
+                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Phantom Guns" data-type="gun" data-dmg="38" data-coins="45" data-cores="1" data-cd="10">45 Coins + 1 Boss Core</button>
                             </div>
                             <div class="forge-box gun-box">
                                 <h4>Void Assault Rifle (Gun)</h4>
                                 <p>High Velocity | +62 DMG</p>
-                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Void Rifle" data-type="gun" data-dmg="62" data-coins="90" data-cores="1" data-cd="8">90 Coins + 1 Core</button>
+                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Void Rifle" data-type="gun" data-dmg="62" data-coins="90" data-cores="1" data-cd="8">90 Coins + 1 Boss Core</button>
                             </div>
                             <div class="forge-box gun-box">
                                 <h4>Omega Railcannon (Gun)</h4>
                                 <p>Mythic Beam | +105 DMG</p>
-                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Omega Railcannon" data-type="gun" data-dmg="105" data-coins="150" data-cores="2" data-cd="12">150 Coins + 2 Cores</button>
+                                <button type="button" class="btn btn-reroll craft-wpn-btn" data-name="Omega Railcannon" data-type="gun" data-dmg="105" data-coins="150" data-cores="2" data-cd="12">150 Coins + 2 Boss Cores</button>
                             </div>
                         </div>
 
@@ -156,11 +180,11 @@
                     </div>
                 </div>
 
-                <!-- 5. 5-Round Arena Matchmaking Modal (1v1 to 5v5) -->
-                <div id="arena-modal" class="full-modal hidden">
+                <!-- 6. 5-Round Bot Arena Matchmaking Modal -->
+                <div id="arena-modal" class="full-modal">
                     <div class="modal-card wide-card">
                         <h2 class="modal-title">Squad Arena (First to 5 Wins)</h2>
-                        <p class="modal-subtitle">Defeating opponents in 1v1 to 5v5 matches is the <b>ONLY</b> way to earn Forge Coins! First team to win 5 rounds wins the series.</p>
+                        <p class="modal-subtitle">Fight in 1v1 to 5v5 matches to earn Forge Coins! First team to win 5 rounds wins the series.</p>
                         <div class="arena-grid">
                             <button type="button" class="arena-btn start-arena-btn" data-size="1"><b>1 vs 1</b><span>+15 Coins / Kill</span></button>
                             <button type="button" class="arena-btn start-arena-btn" data-size="2"><b>2 vs 2</b><span>+20 Coins / Kill</span></button>
@@ -172,8 +196,8 @@
                     </div>
                 </div>
 
-                <!-- 6. Class Selector Modal -->
-                <div id="class-modal" class="full-modal hidden">
+                <!-- 7. Class Selector Modal -->
+                <div id="class-modal" class="full-modal">
                     <div class="modal-card">
                         <h2 class="modal-title">Select Combat Class</h2>
                         <p class="modal-subtitle">Choose your Stickman specialization (No mining effects):</p>
@@ -188,7 +212,7 @@
                 </div>
 
                 <div id="controls-hint">
-                    <b>WASD / Arrows:</b> Move | <b>Click / SPACE:</b> Shoot / Attack | <b>E:</b> Talk NPC | <b>Q:</b> Switch Gun/Melee | <b>M:</b> 10% Boss Motion
+                    <b>WASD / Arrows:</b> Move | <b>Click / SPACE:</b> Shoot / Slash | <b>E:</b> Talk & Claim Quest Reward | <b>Q:</b> Gun/Blade | <b>M:</b> 10% Motion
                 </div>
             </div>
 
@@ -204,7 +228,7 @@
                 </div>
                 <div class="touch-actions">
                     <button type="button" class="t-btn atk-btn" id="t-atk">🔫 FIRE / ATK</button>
-                    <button type="button" class="t-btn talk-btn" id="t-talk">💬 TALK [E]</button>
+                    <button type="button" class="t-btn talk-btn" id="t-talk">💬 TALK / CLAIM [E]</button>
                     <button type="button" class="t-btn mode-btn" id="t-mode">🔄 GUN/BLADE</button>
                     <button type="button" class="t-btn motion-btn" id="t-motion">🔥 10% MOTION</button>
                 </div>
@@ -214,8 +238,9 @@
         <!-- Hall of Heroes Leaderboard Sidebar -->
         <div class="leaderboard-panel">
             <h3>Hall of Heroes</h3>
-            <p class="panel-sub">Unique One-Time Usernames</p>
+            <p class="panel-sub">Online Status & Loadout</p>
             <div class="status-box">
+                <div>Online Peer: <b id="ui-peer-status" style="color:#00d2ff;">Solo Mode</b></div>
                 <div>Equipped: <b id="ui-weapon">Pulse Pistol</b></div>
                 <div>10% Boss Motion: <b id="ui-motion">Locked</b></div>
             </div>
@@ -225,7 +250,6 @@
         </div>
     </div>
 
-    <!-- Links to both script.js and game.js safely so whichever filename you use on GitHub works! -->
     <script src="script.js"></script>
 </body>
 </html>
