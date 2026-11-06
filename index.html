@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stickman Force 100: Realistic RPG & Class/Race Awakening</title>
+    <title>Stickman Force 100: Global Online Server RPG</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -40,11 +40,11 @@
             <!-- Action Menu Bar -->
             <div class="menu-bar">
                 <button type="button" class="menu-btn active" id="btn-story">World Map</button>
-                <button type="button" class="menu-btn" id="btn-race-spin">Race Spin (<span id="ui-race-spins">1</span>)</button>
-                <button type="button" class="menu-btn" id="btn-class-spin">Class Spin (<span id="ui-class-spins">1</span>)</button>
+                <button type="button" class="menu-btn" id="btn-race-spin">Race Spin (<span id="ui-race-spins">2</span>)</button>
+                <button type="button" class="menu-btn" id="btn-class-spin">Class Spin (<span id="ui-class-spins">2</span>)</button>
                 <button type="button" class="menu-btn" id="btn-forge">Armory & Forge</button>
-                <button type="button" class="menu-btn" id="btn-arena">Rivals (1v1-5v5)</button>
-                <button type="button" class="menu-btn online-btn" id="btn-online">🌐 Online PvP</button>
+                <button type="button" class="menu-btn" id="btn-arena">Bot Arena (1v1-5v5)</button>
+                <button type="button" class="menu-btn online-btn" id="btn-online">🌐 Global Server (<span id="ui-online-count">1</span>)</button>
                 <button type="button" class="menu-btn mode-switch" id="btn-mode"><span id="ui-atk-mode">GUN</span> [Q]</button>
             </div>
 
@@ -60,7 +60,7 @@
 
                 <!-- 5-Round Series Scoreboard -->
                 <div id="series-banner" class="hidden">
-                    <span class="t-ally">HERO SQUAD: <b id="score-ally">0</b></span>
+                    <span class="t-ally">YOU / SQUAD: <b id="score-ally">0</b></span>
                     <span class="t-mid">FIRST TO 5 WINS</span>
                     <span class="t-enemy">RIVALS: <b id="score-enemy">0</b></span>
                 </div>
@@ -68,14 +68,14 @@
                 <!-- Floating Toast Notification -->
                 <div id="toast">Notification</div>
 
-                <!-- 1. One-Time Permanent Login Modal (Auto-Hidden Once Claimed!) -->
+                <!-- 1. One-Time Permanent Login Modal -->
                 <div id="login-modal" class="full-modal" style="display:none;">
                     <div class="modal-card">
-                        <h2 class="modal-title">Stickman Force: Stage 1 to 100</h2>
-                        <p class="modal-subtitle">Enter your permanent Hero Name. It saves automatically so you never have to log in again!</p>
+                        <h2 class="modal-title">Stickman Force: Global Server</h2>
+                        <p class="modal-subtitle">Enter your permanent Hero Name. You will automatically connect to the Global Multiplayer Server!</p>
                         <input type="text" id="username-input" placeholder="Enter unique Hero Name..." maxlength="15" autocomplete="off">
                         <p id="login-error" class="error-text"></p>
-                        <button type="button" id="claim-btn" class="btn" style="width:100%;">Save Hero Forever & Play</button>
+                        <button type="button" id="claim-btn" class="btn" style="width:100%;">Join Global Server & Play</button>
                     </div>
                 </div>
 
@@ -91,7 +91,7 @@
                 <div id="reroll-modal" class="full-modal">
                     <div class="modal-card">
                         <h2 class="modal-title">Race Awakening Chamber</h2>
-                        <p class="modal-subtitle">Spins Available: <b id="modal-race-spins" style="color:#ffd700;">1</b> (Or spend 50 Gems)</p>
+                        <p class="modal-subtitle">Spins Available: <b id="modal-race-spins" style="color:#ffd700;">2</b> (Or spend 50 Gems)</p>
                         
                         <div class="spin-display">
                             <div id="spin-race-name" class="rarity-Common">Human (Common)</div>
@@ -114,11 +114,11 @@
                     </div>
                 </div>
 
-                <!-- 4. NEW: Class Reroll Gacha Modal -->
+                <!-- 4. Class Reroll Gacha Modal -->
                 <div id="class-modal" class="full-modal">
                     <div class="modal-card">
                         <h2 class="modal-title" style="color:#00d2ff;">Class Awakening Gacha</h2>
-                        <p class="modal-subtitle">Class Spins: <b id="modal-class-spins" style="color:#00d2ff;">1</b> (Earned from Quests & Boss Drops)</p>
+                        <p class="modal-subtitle">Class Spins: <b id="modal-class-spins" style="color:#00d2ff;">2</b> (Earned from Quests & Boss Drops)</p>
 
                         <div class="spin-display">
                             <div id="spin-class-name" class="rarity-Common">Soldier (Common)</div>
@@ -141,7 +141,7 @@
                     </div>
                 </div>
 
-                <!-- 5. Armory & Forge (Permanent Owned Inventory - Never Buy Twice!) -->
+                <!-- 5. Armory & Forge -->
                 <div id="forge-modal" class="full-modal">
                     <div class="modal-card wide-card">
                         <h2 class="modal-title">Master Armory & Gun Forge</h2>
@@ -158,19 +158,17 @@
                             </label>
                         </div>
 
-                        <div class="forge-grid" id="forge-weapons-grid">
-                            <!-- Dynamically populated by script.js so Owned/Equipped state is always accurate -->
-                        </div>
+                        <div class="forge-grid" id="forge-weapons-grid"></div>
 
                         <p id="forge-status" class="status-msg"></p>
                         <button type="button" class="btn btn-close close-modal-btn">Return to Battle</button>
                     </div>
                 </div>
 
-                <!-- 6. 5-Round Arena Matchmaking Modal -->
+                <!-- 6. 5-Round Bot Arena Matchmaking Modal -->
                 <div id="arena-modal" class="full-modal">
                     <div class="modal-card wide-card">
-                        <h2 class="modal-title">Rivals Arena (First to 5 Wins)</h2>
+                        <h2 class="modal-title">Rivals Bot Arena (First to 5 Wins)</h2>
                         <p class="modal-subtitle">Battle in 1v1 to 5v5 matches! Every kill drops <b>Forge Coins, Gems & XP</b>.</p>
                         <div class="arena-grid">
                             <button type="button" class="arena-btn start-arena-btn" data-size="1"><b>1 vs 1</b><span>+20 Coins / Kill</span></button>
@@ -183,21 +181,20 @@
                     </div>
                 </div>
 
-                <!-- 7. Live Online Multiplayer Modal -->
+                <!-- 7. Global Online Server Lobby Modal -->
                 <div id="online-modal" class="full-modal">
                     <div class="modal-card">
-                        <h2 class="modal-title" style="color:#00d2ff;">🌐 Live Online Multiplayer (2km+ PvP/Co-Op)</h2>
-                        <p class="modal-subtitle">Share your Room Code with a friend anywhere on the internet to battle or play Co-Op!</p>
+                        <h2 class="modal-title" style="color:#00d2ff;">🌐 Single Global Server Lobby</h2>
+                        <p class="modal-subtitle">All devices automatically connect to the same Global Server! You can see and battle everyone online in real time.</p>
                         <div class="room-box">
-                            <div>Your Room Code: <b id="my-room-code" style="color:#f1c40f; font-size:18px;">Connecting...</b></div>
-                            <div id="online-status" style="font-size:12px; color:#2ecc71; margin-top:4px;">Ready for friend</div>
+                            <div>Global Server Status: <b id="online-status" style="color:#2ecc71;">Connected to Global Lobby</b></div>
+                            <div style="margin-top:6px; font-size:13px;">Players Online Right Now: <b id="modal-online-count" style="color:#ffd700;">1</b></div>
                         </div>
-                        <input type="text" id="friend-code-input" placeholder="Enter Friend's Room Code..." autocomplete="off">
                         <div class="modal-actions">
-                            <button type="button" class="btn" style="background:#00d2ff;" id="btn-connect-friend">Connect to Friend</button>
-                            <button type="button" class="btn btn-reroll" id="btn-start-online-duel">Start 5-Round PvP</button>
+                            <button type="button" class="btn" style="background:#00d2ff;" id="btn-reconnect-global">🔄 Force Re-Sync Global Server</button>
+                            <button type="button" class="btn btn-reroll" id="btn-start-online-duel">⚔️ Enter Global PvP Arena (First to 5)</button>
                         </div>
-                        <button type="button" class="btn btn-close close-modal-btn" style="margin-top:10px; width:100%;">Close</button>
+                        <button type="button" class="btn btn-close close-modal-btn" style="margin-top:10px; width:100%;">Return to Game</button>
                     </div>
                 </div>
 
@@ -227,17 +224,18 @@
 
         <!-- Sidebar -->
         <div class="leaderboard-panel">
-            <h3>Hero Profile & Inventory</h3>
-            <p class="panel-sub">Auto-Saved Progress</p>
+            <h3>🌐 Global Server Status</h3>
+            <p class="panel-sub">Shared Live Server & Scores</p>
             <div class="status-box">
+                <div>Server Role: <b id="ui-peer-status" style="color:#2ecc71;">Connecting...</b></div>
+                <div>Online Players: <b id="ui-sidebar-online" style="color:#ffd700;">1 Player(s)</b></div>
                 <div>Equipped: <b id="ui-weapon" style="color:#00d2ff;">Pulse Pistol</b></div>
                 <div>Owned Weapons: <b id="ui-owned-count" style="color:#2ecc71;">1 / 8</b></div>
                 <div>10% Boss Motion: <b id="ui-motion">Locked</b></div>
-                <div>Online Status: <b id="ui-peer-status" style="color:#f39c12;">Solo / Ready</b></div>
             </div>
-            <h4 style="color:#f1c40f; font-size:13px; margin: 8px 0 6px;">🏆 Top Heroes</h4>
+            <h4 style="color:#f1c40f; font-size:13px; margin: 8px 0 6px;">🏆 Live Global Leaderboard</h4>
             <ul id="leaderboard-list">
-                <li>Loading heroes...</li>
+                <li>Connecting to global leaderboard...</li>
             </ul>
         </div>
     </div>
