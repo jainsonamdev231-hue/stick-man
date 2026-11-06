@@ -1,7 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// ================= RACES & CLASSES GACHA TABLES (WITH WEIGHTED RARITIES) =================
+// ================= RACES & CLASSES GACHA TABLES =================
 const RACES = [
     { name: "Human", rarity: "Common", chance: 45, hpMult: 1.0, dmgMult: 1.0, spdMult: 1.0, rangeBonus: 0, bulletMult: 1.0, multiShot: 1, regen: 0, lifesteal: 0, color: "#3498db", aura: null },
     { name: "Beastkin", rarity: "Uncommon", chance: 25, hpMult: 1.3, dmgMult: 1.25, spdMult: 1.35, rangeBonus: 8, bulletMult: 1.15, multiShot: 1, regen: 0.02, lifesteal: 0, color: "#e67e22", aura: "#2ecc71" },
@@ -48,6 +48,7 @@ const BIOMES = [
 
 // ================= PLAYER STATE =================
 const player = {
+    id: "p_" + Math.random().toString(36).substring(2, 9),
     username: "Guest",
     level: 1,
     xp: 0,
@@ -61,7 +62,7 @@ const player = {
     heroClass: CLASSES[0],
     attackStyle: "gun",
     equippedWeaponId: "pistol",
-    ownedWeapons: ["pistol"], // Permanent inventory!
+    ownedWeapons: ["pistol"],
     weaponColor: "#00d2ff",
     weaponMod: "Rapid",
     raceSpins: 2,
@@ -78,9 +79,9 @@ const player = {
     walkAnim: 0
 };
 
-let currentStage = 1; // 1 to 100
+let currentStage = 1;
 let maxUnlockedStage = 1;
-let questState = "AVAILABLE"; // "AVAILABLE", "ACTIVE", "READY_TO_CLAIM"
+let questState = "AVAILABLE";
 let questKills = 0;
 
 let activeMode = "STORY"; // "STORY", "ARENA", "ONLINE_PVP"
@@ -101,12 +102,274 @@ let stageProps = [];
 let floatingTexts = [];
 const keys = {};
 
-// ================= PERMANENT AUTO-SAVE & AUTO-LOGIN =================
+// ================= SINGLE GLOBAL SERVER ENGINE (EVERYONE JOINS ONE SERVER!) =================
+const GLOBAL_MASTER_ID = "stickman-force-global-main-server-v1";
+let peer = null;
+let isMasterHost = false;
+let hostConnection = null;     // Used if we are a Client connected to the Master Server
+let clientConnections = [];    // Used if we are the Master Server holding all players
+let networkPlayers = {};       // Map of { [playerId]: playerState } for all live online players
+let globalLeaderboard = [];    // Unified Leaderboard shared across all connected devices
+
+function initSingleGlobalServer() {
+    if (typeof Peer === "undefined") return;
+
+    // Clean up any existing peer
+    if (peer) {
+        try { peer.destroy(); } catch (e) {}
+    }
+
+    document.getElementById('ui-peer-status').innerText = "Joining Global Server...";
+
+    // Step 1: Try to become the Master Global Server (`GLOBAL_MASTER_ID`)
+    peer = new Peer(GLOBAL_MASTER_ID);
+
+    peer.on('open', () => {
+        // We successfully claimed the Master Global Server slot!
+        isMasterHost = true;
+        document.getElementById('ui-peer-status').innerText = "🌐 Global Server Host";
+        document.getElementById('online-status').innerText = "Active Global Host (All devices auto-join you)";
+        updateOnlineCountUI();
+
+        peer.on('connection', conn => {
+            setupHostClientConnection(conn);
+        });
+    });
+
+    peer.on('error', err => {
+        // Step 2: If `GLOBAL_MASTER_ID` is already running on another device, auto-join it as a Client!
+        if (err.type === 'unavailable-id') {
+            isMasterHost = false;
+            connectAsGlobalClient();
+        } else {
+            document.getElementById('ui-peer-status').innerText = "Reconnecting...";
+        }
+    });
+}
+
+function connectAsGlobalClient() {
+    try { peer.destroy(); } catch (e) {}
+    peer = new Peer(); // Automatic client ID
+
+    peer.on('open', () => {
+        document.getElementById('ui-peer-status').innerText = "Connecting to Global Host...";
+        hostConnection = peer.connect(GLOBAL_MASTER_ID, { reliable: true });
+
+        hostConnection.on('open', () => {
+            document.getElementById('ui-peer-status').innerText = "🌐 Connected (Global Server)";
+            document.getElementById('online-status').innerText = "Synced with Global Server!";
+            showToast("Connected to Global Multiplayer Server!");
+            sendMyStateToGlobalServer();
+        });
+
+        hostConnection.on('data', data => {
+            handleIncomingGlobalData(data, null);
+        });
+
+        hostConnection.on('close', () => {
+            // If the Master Host device leaves, automatically promote one of the remaining devices to Master Host!
+            document.getElementById('ui-peer-status').innerText = "Host Migrating...";
+            setTimeout(initSingleGlobalServer, 1500);
+        });
+    });
+}
+
+function setupHostClientConnection(conn) {
+    clientConnections.push(conn);
+
+    conn.on('open', () => {
+        updateOnlineCountUI();
+        showToast("A new player joined the Global Server!");
+        broadcastWorldSnapshot();
+    });
+
+    conn.on('data', data => {
+        handleIncomingGlobalData(data, conn);
+    });
+
+    conn.on('close', () => {
+        clientConnections = clientConnections.filter(c => c !== conn);
+        if (conn.playerId && networkPlayers[conn.playerId]) {
+            delete networkPlayers[conn.playerId];
+        }
+        updateOnlineCountUI();
+        broadcastWorldSnapshot();
+    });
+}
+
+function handleIncomingGlobalData(data, senderConn) {
+    if (!data || !data.type) return;
+
+    if (data.type === "PLAYER_UPDATE") {
+        const p = data.player;
+        if (p && p.id !== player.id) {
+            if (senderConn) senderConn.playerId = p.id;
+            networkPlayers[p.id] = p;
+            mergeIntoGlobalLeaderboard(p.username, p.score);
+        }
+        if (isMasterHost) {
+            broadcastWorldSnapshot();
+        }
+        updateOnlineCountUI();
+    } else if (data.type === "WORLD_SNAPSHOT") {
+        // Received from Master Host: contains all connected players + unified leaderboard
+        const allPlayers = data.players || {};
+        const nextMap = {};
+        Object.keys(allPlayers).forEach(pid => {
+            if (pid !== player.id) {
+                nextMap[pid] = allPlayers[pid];
+            }
+        });
+        networkPlayers = nextMap;
+
+        if (Array.isArray(data.leaderboard)) {
+            globalLeaderboard = data.leaderboard;
+            renderLeaderboard(globalLeaderboard);
+        }
+        updateOnlineCountUI();
+    } else if (data.type === "SHOOT_BULLET") {
+        if (data.shooterId !== player.id) {
+            bullets.push({
+                x: data.x, y: data.y,
+                vx: data.vx, vy: data.vy,
+                dmg: data.dmg,
+                color: "#ff5555",
+                fromAlly: false,
+                shooterId: data.shooterId,
+                radius: 5
+            });
+        }
+        if (isMasterHost) {
+            clientConnections.forEach(c => {
+                if (c !== senderConn && c.open) c.send(data);
+            });
+        }
+    } else if (data.type === "PLAYER_HIT") {
+        if (data.targetId === player.id) {
+            player.hp -= data.dmg;
+            floatingTexts.push({ x: player.x, y: player.y - 18, text: `-${data.dmg}`, color: "#ff3838", timer: 30 });
+            updateHUD();
+            if (player.hp <= 0) {
+                player.hp = player.maxHp;
+                player.x = 120 + Math.random() * 600;
+                player.y = 120 + Math.random() * 260;
+                enemyRoundWins++;
+                document.getElementById('score-enemy').innerText = enemyRoundWins;
+                sendNetworkPacket({ type: "KILL_CREDIT", killerId: data.attackerId, victimName: player.username });
+            }
+        } else if (isMasterHost) {
+            clientConnections.forEach(c => {
+                if (c.open) c.send(data);
+            });
+        }
+    } else if (data.type === "KILL_CREDIT") {
+        if (data.killerId === player.id) {
+            allyRoundWins++;
+            player.coins += 35;
+            player.gems += 5;
+            player.score += 300;
+            document.getElementById('score-ally').innerText = allyRoundWins;
+            showToast(`Defeated ${data.victimName}! (+35 Coins, +5 Gems) [${allyRoundWins}/5]`);
+            if (allyRoundWins >= 5) {
+                player.coins += 100;
+                showToast(`🏆 GLOBAL PVP SERIES WON! (+100 Bonus Coins)`);
+                allyRoundWins = 0;
+                enemyRoundWins = 0;
+            }
+            saveProgress();
+            updateHUD();
+        } else if (isMasterHost) {
+            clientConnections.forEach(c => {
+                if (c.open) c.send(data);
+            });
+        }
+    }
+}
+
+function getMyNetworkState() {
+    return {
+        id: player.id,
+        username: player.username,
+        level: player.level,
+        score: player.score,
+        stage: currentStage,
+        mode: activeMode,
+        x: Math.round(player.x),
+        y: Math.round(player.y),
+        hp: Math.ceil(player.hp),
+        maxHp: player.maxHp,
+        aimAngle: Number(player.facingAngle.toFixed(2)),
+        walkAnim: Number(player.walkAnim.toFixed(2)),
+        color: player.race.color,
+        aura: player.race.aura,
+        className: player.heroClass.name,
+        attackStyle: player.attackStyle,
+        wpnColor: player.weaponColor,
+        bossMotion: player.bossMotionActive
+    };
+}
+
+function sendNetworkPacket(packet) {
+    if (isMasterHost) {
+        clientConnections.forEach(c => {
+            if (c.open) c.send(packet);
+        });
+    } else if (hostConnection && hostConnection.open) {
+        hostConnection.send(packet);
+    }
+}
+
+function sendMyStateToGlobalServer() {
+    if (player.username === "Guest") return;
+    mergeIntoGlobalLeaderboard(player.username, player.score);
+
+    if (isMasterHost) {
+        broadcastWorldSnapshot();
+    } else if (hostConnection && hostConnection.open) {
+        hostConnection.send({
+            type: "PLAYER_UPDATE",
+            player: getMyNetworkState()
+        });
+    }
+}
+
+function broadcastWorldSnapshot() {
+    if (!isMasterHost) return;
+    const allPlayers = { ...networkPlayers };
+    allPlayers[player.id] = getMyNetworkState();
+
+    const packet = {
+        type: "WORLD_SNAPSHOT",
+        players: allPlayers,
+        leaderboard: globalLeaderboard
+    };
+    clientConnections.forEach(c => {
+        if (c.open) c.send(packet);
+    });
+}
+
+function updateOnlineCountUI() {
+    // Cleanup stale players (>8 seconds silent)
+    const totalOnline = 1 + Object.keys(networkPlayers).length;
+    document.getElementById('ui-online-count').innerText = totalOnline;
+    document.getElementById('modal-online-count').innerText = totalOnline;
+    document.getElementById('ui-sidebar-online').innerText = `${totalOnline} Player(s) in Server`;
+}
+
+// Broadcast live player positions 12 times per second
+setInterval(() => {
+    if (player.username !== "Guest") {
+        sendMyStateToGlobalServer();
+    }
+}, 85);
+
+// ================= PERMANENT AUTO-SAVE & UNIFIED LEADERBOARD =================
 const SAVE_KEY = "stickman_force_100_save_v1";
 
 function saveProgress() {
     if (player.username === "Guest") return;
     const data = {
+        id: player.id,
         username: player.username,
         level: player.level,
         xp: player.xp,
@@ -131,6 +394,7 @@ function saveProgress() {
     try {
         localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch (e) {}
+    mergeIntoGlobalLeaderboard(player.username, player.score);
 }
 
 function loadSavedProgress() {
@@ -140,6 +404,7 @@ function loadSavedProgress() {
         const d = JSON.parse(raw);
         if (!d || !d.username) return false;
 
+        player.id = d.id || player.id;
         player.username = d.username;
         player.level = d.level || 1;
         player.xp = d.xp || 0;
@@ -166,28 +431,29 @@ function loadSavedProgress() {
     }
 }
 
-function getLeaderboardData() {
+function mergeIntoGlobalLeaderboard(username, score) {
+    if (!username || username === "Guest") return;
     try {
-        const raw = localStorage.getItem('rpg_unique_heroes');
-        return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-        return [];
-    }
-}
-
-function updateLeaderboardStorage() {
-    if (player.username === "Guest") return;
-    try {
-        const list = getLeaderboardData();
-        const existing = list.find(p => p.username.toLowerCase() === player.username.toLowerCase());
-        if (existing) {
-            existing.score = Math.max(existing.score, player.score);
-        } else {
-            list.push({ username: player.username, score: player.score });
-        }
-        localStorage.setItem('rpg_unique_heroes', JSON.stringify(list));
-        renderLeaderboard(list);
+        const stored = JSON.parse(localStorage.getItem('rpg_unique_heroes') || '[]');
+        stored.forEach(item => {
+            const ex = globalLeaderboard.find(g => g.username.toLowerCase() === item.username.toLowerCase());
+            if (ex) ex.score = Math.max(ex.score, item.score);
+            else globalLeaderboard.push({ username: item.username, score: item.score });
+        });
     } catch (e) {}
+
+    const existing = globalLeaderboard.find(p => p.username.toLowerCase() === username.toLowerCase());
+    if (existing) {
+        existing.score = Math.max(existing.score, score);
+    } else {
+        globalLeaderboard.push({ username, score });
+    }
+
+    try {
+        localStorage.setItem('rpg_unique_heroes', JSON.stringify(globalLeaderboard));
+    } catch (e) {}
+
+    renderLeaderboard(globalLeaderboard);
 }
 
 function renderLeaderboard(players) {
@@ -197,9 +463,11 @@ function renderLeaderboard(players) {
         list.innerHTML = "<li>No heroes registered yet...</li>";
         return;
     }
-    players.sort((a, b) => b.score - a.score).slice(0, 10).forEach((p, idx) => {
+    players.sort((a, b) => b.score - a.score).slice(0, 12).forEach((p, idx) => {
+        const isOnline = p.username === player.username || Object.values(networkPlayers).some(np => np.username === p.username);
+        const dot = isOnline ? `<span style="color:#2ecc71;">●</span> ` : `<span style="color:#666;">○</span> `;
         const li = document.createElement('li');
-        li.innerHTML = `<span>#${idx + 1} <b>${p.username}</b></span><span style="color:#ffd700;">${p.score} pts</span>`;
+        li.innerHTML = `<span>${dot}#${idx + 1} <b>${p.username}</b></span><span style="color:#ffd700;">${p.score} pts</span>`;
         list.appendChild(li);
     });
 }
@@ -225,8 +493,7 @@ function getStageConfig(stageNum) {
         enemyDmg,
         rewardCoins: 35 + s * 15 + (isBossStage ? 80 : 0),
         rewardXp: 50 + s * 25,
-        rewardGems: isBossStage ? 15 : 5,
-        rewardSpins: isBossStage ? 1 : 0
+        rewardGems: isBossStage ? 15 : 5
     };
 }
 
@@ -307,7 +574,7 @@ function updateHUD() {
 
     document.getElementById('ui-stage-title').innerText = activeMode === "STORY"
         ? `STAGE ${currentStage} / 100 — ${cfg.biome.name} ${cfg.isBossStage ? "(🔥 BOSS)" : ""}`
-        : (activeMode === "ONLINE_PVP" ? "🌐 ONLINE 1v1 DUEL" : `⚔️ RIVALS ARENA (${arenaTeamSize}v${arenaTeamSize})`);
+        : (activeMode === "ONLINE_PVP" ? "🌐 GLOBAL SERVER PVP ARENA" : `⚔️ RIVALS ARENA (${arenaTeamSize}v${arenaTeamSize})`);
     document.getElementById('ui-max-stage').innerText = maxUnlockedStage;
 
     const wpn = getEquippedWeapon();
@@ -358,7 +625,6 @@ function handleWeaponAction(wpn) {
     player.weaponColor = document.getElementById('custom-color').value;
     player.weaponMod = document.getElementById('custom-mod').value;
 
-    // If already owned, equip immediately for FREE!
     if (player.ownedWeapons.includes(wpn.id)) {
         player.equippedWeaponId = wpn.id;
         player.attackStyle = wpn.type;
@@ -370,7 +636,6 @@ function handleWeaponAction(wpn) {
         return;
     }
 
-    // Otherwise check currency to purchase once
     if (player.coins < wpn.coins) {
         status.style.color = "#e74c3c";
         status.innerText = `Need ${wpn.coins} Coins! Complete NPC Quests, open Loot Chests, or play Arena.`;
@@ -411,7 +676,6 @@ function loadStage(stageNum, spawnX = 130, spawnY = 250) {
     generateBiomeProps(currentStage);
     const cfg = getStageConfig(currentStage);
 
-    // Spawn initial stage mobs
     const mobCount = cfg.isBossStage ? 2 : 4;
     for (let i = 0; i < mobCount; i++) {
         spawnStageMob(cfg, 430 + (i % 2) * 160, 120 + Math.floor(i / 2) * 200, false);
@@ -525,7 +789,6 @@ function openStageDialogue() {
                 maxUnlockedStage = currentStage + 1;
             }
             gainXp(cfg.rewardXp);
-            updateLeaderboardStorage();
 
             questState = "AVAILABLE";
             questKills = 0;
@@ -571,7 +834,7 @@ function triggerRaceSpin() {
     document.getElementById('modal-race-spins').innerText = player.raceSpins;
     isSpinning = true;
 
-    const finalRace = pickWeightedRaceWithLuck();
+    const finalRace = pickWeightedItem(RACES);
     let ticks = 0;
     const interval = setInterval(() => {
         const preview = RACES[Math.floor(Math.random() * RACES.length)];
@@ -587,10 +850,6 @@ function triggerRaceSpin() {
             showToast(`Awakened Race: ${finalRace.name} [${finalRace.rarity}]!`);
         }
     }, 80);
-}
-
-function pickWeightedRaceWithLuck() {
-    return pickWeightedItem(RACES);
 }
 
 function updateRaceModalText(r) {
@@ -670,16 +929,25 @@ function performAttack() {
                 radius: 5
             });
 
-            if (conn && conn.open) {
-                conn.send({ type: "SHOOT", x: bx, y: by, vx: bvx, vy: bvy, dmg: player.dmg });
-            }
+            sendNetworkPacket({
+                type: "SHOOT_BULLET",
+                shooterId: player.id,
+                x: Math.round(bx), y: Math.round(by),
+                vx: Number(bvx.toFixed(2)), vy: Number(bvy.toFixed(2)),
+                dmg: player.dmg
+            });
         }
     } else {
         player.attackVisualTimer = 10;
         screenShake = 4;
-        if (remotePlayer.connected && Math.hypot(remotePlayer.x - player.x, remotePlayer.y - player.y) <= player.attackRange + remotePlayer.radius) {
-            if (conn && conn.open) conn.send({ type: "HIT_ME", dmg: player.dmg });
-        }
+        // Check Melee Hit on Online Players
+        Object.values(networkPlayers).forEach(rp => {
+            if (Math.hypot(rp.x - player.x, rp.y - player.y) <= player.attackRange + 18) {
+                sendNetworkPacket({ type: "PLAYER_HIT", targetId: rp.id, attackerId: player.id, dmg: player.dmg });
+                floatingTexts.push({ x: rp.x, y: rp.y - 18, text: `-${player.dmg}`, color: "#00d2ff", timer: 30 });
+            }
+        });
+
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
             if (Math.hypot(e.x - player.x, e.y - player.y) <= player.attackRange + e.radius) {
@@ -725,7 +993,6 @@ function handleEnemyDeath(e, index) {
     player.score += e.isBoss ? 500 : 100;
     gainXp(e.isBoss ? 80 + currentStage * 10 : 22 + currentStage * 4);
 
-    // Spawn Physical Collectible Loot Drop on the Ground!
     lootDrops.push({
         x: e.x, y: e.y,
         type: e.isBoss ? "CHEST" : (Math.random() < 0.35 ? "GEM" : "COIN"),
@@ -741,7 +1008,6 @@ function handleEnemyDeath(e, index) {
         return;
     }
 
-    // Quest Progress Check
     const cfg = getStageConfig(currentStage);
     if (questState === "ACTIVE") {
         questKills++;
@@ -752,7 +1018,6 @@ function handleEnemyDeath(e, index) {
         updateQuestTracker();
     }
 
-    // Spin Drop Roll
     if (Math.random() <= e.dropChance) {
         if (Math.random() < 0.5) {
             player.raceSpins++;
@@ -763,7 +1028,6 @@ function handleEnemyDeath(e, index) {
         }
     }
 
-    // Strict 10% Boss Drop for Shadow Core Motion & Boss Core
     if (e.isBoss && Math.random() < 0.10) {
         player.bossCores++;
         player.unlockedBossMotion = true;
@@ -786,75 +1050,6 @@ function handleEnemyDeath(e, index) {
     updateHUD();
 }
 
-// ================= LIVE INTERNET MULTIPLAYER (PEERJS) =================
-let peer = null;
-let conn = null;
-const remotePlayer = {
-    connected: false,
-    username: "Rival",
-    x: 700, y: 250, radius: 18,
-    hp: 150, maxHp: 150,
-    aimAngle: 0, walkAnim: 0,
-    color: "#ff5555", aura: null,
-    attackStyle: "gun", wpnColor: "#ff5555", bossMotion: false
-};
-
-function initOnlineMultiplayer(cleanUsername) {
-    if (typeof Peer === "undefined") return;
-    const roomCode = "stickforce100-" + cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
-    document.getElementById('my-room-code').innerText = cleanUsername;
-
-    try {
-        peer = new Peer(roomCode);
-        peer.on('open', () => {
-            document.getElementById('online-status').innerText = `Online! Share Room Code: ${cleanUsername}`;
-        });
-        peer.on('connection', incoming => {
-            conn = incoming;
-            setupConnectionHandlers();
-        });
-    } catch (e) {}
-}
-
-function connectToFriend() {
-    const rawCode = document.getElementById('friend-code-input').value.trim();
-    if (!rawCode || !peer) return;
-    const targetId = "stickforce100-" + rawCode.toLowerCase().replace(/[^a-z0-9\-]/g, "");
-    conn = peer.connect(targetId);
-    setupConnectionHandlers();
-}
-
-function setupConnectionHandlers() {
-    if (!conn) return;
-    conn.on('open', () => {
-        remotePlayer.connected = true;
-        document.getElementById('ui-peer-status').innerText = "Connected Live!";
-        showToast("Friend Connected Live over the Internet!");
-    });
-    conn.on('data', data => {
-        if (data.type === "STATE") {
-            Object.assign(remotePlayer, data);
-        } else if (data.type === "SHOOT") {
-            bullets.push({ x: data.x, y: data.y, vx: data.vx, vy: data.vy, dmg: data.dmg, color: "#ff5555", fromAlly: false, radius: 5 });
-        } else if (data.type === "HIT_ME") {
-            player.hp -= data.dmg;
-            updateHUD();
-            if (player.hp <= 0) {
-                if (conn && conn.open) conn.send({ type: "ROUND_WON" });
-                player.hp = player.maxHp;
-                player.x = 700;
-            }
-        } else if (data.type === "ROUND_WON") {
-            allyRoundWins++;
-            player.coins += 35;
-            document.getElementById('score-ally').innerText = allyRoundWins;
-            showToast(`Round Won vs ${remotePlayer.username}! (+35 Coins)`);
-            saveProgress();
-            updateHUD();
-        }
-    });
-}
-
 // ================= LOGIN & INITIALIZATION =================
 function claimUniqueName() {
     const inputEl = document.getElementById('username-input');
@@ -866,10 +1061,9 @@ function claimUniqueName() {
     player.username = cleanName;
     document.getElementById('login-modal').style.display = 'none';
     saveProgress();
-    updateLeaderboardStorage();
-    initOnlineMultiplayer(cleanName);
+    initSingleGlobalServer();
     loadStage(currentStage);
-    showToast(`Welcome back forever, ${cleanName}! Your progress auto-saves.`);
+    showToast(`Joined Global Server as ${cleanName}!`);
 }
 
 // ================= BUTTON & INPUT LISTENERS =================
@@ -924,6 +1118,7 @@ document.getElementById('btn-arena').addEventListener('click', () => {
 
 document.getElementById('btn-online').addEventListener('click', () => {
     closeAllModals();
+    updateOnlineCountUI();
     document.getElementById('online-modal').style.display = 'flex';
 });
 
@@ -931,7 +1126,10 @@ document.getElementById('btn-mode').addEventListener('click', toggleAttackStyle)
 document.getElementById('btn-dialogue-next').addEventListener('click', acceptDialogue);
 document.getElementById('spin-race-btn').addEventListener('click', triggerRaceSpin);
 document.getElementById('spin-class-btn').addEventListener('click', triggerClassSpin);
-document.getElementById('btn-connect-friend').addEventListener('click', connectToFriend);
+document.getElementById('btn-reconnect-global').addEventListener('click', () => {
+    initSingleGlobalServer();
+    showToast("Re-syncing with Global Server...");
+});
 document.getElementById('btn-start-online-duel').addEventListener('click', () => {
     closeAllModals();
     activeMode = "ONLINE_PVP";
@@ -939,6 +1137,7 @@ document.getElementById('btn-start-online-duel').addEventListener('click', () =>
     document.getElementById('quest-tracker').classList.add('hidden');
     document.getElementById('series-banner').classList.remove('hidden');
     updateHUD();
+    showToast("Entered Global PvP Arena! Shoot or slash online players!");
 });
 
 document.querySelectorAll('.close-modal-btn').forEach(b => b.addEventListener('click', closeAllModals));
@@ -1071,7 +1270,6 @@ function update() {
     if (player.attackCooldown > 0) player.attackCooldown--;
     if (player.attackVisualTimer > 0) player.attackVisualTimer--;
 
-    // Collect Physical Loot Drops (Coins, Gems, Boss Chests)
     for (let i = lootDrops.length - 1; i >= 0; i--) {
         const ld = lootDrops[i];
         ld.timer--;
@@ -1095,7 +1293,6 @@ function update() {
         if (ld.timer <= 0) lootDrops.splice(i, 1);
     }
 
-    // Stage Portals (Left = Prev Stage, Right = Next Stage up to 100)
     if (activeMode === "STORY") {
         if (Math.hypot(player.x - 795, player.y - 250) < 34) {
             if (currentStage < maxUnlockedStage) {
@@ -1114,7 +1311,7 @@ function update() {
         }
     }
 
-    // Bullets Update
+    // Bullets Update (Hits both Mobs AND Live Online Players!)
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx; b.y += b.vy;
@@ -1123,6 +1320,20 @@ function update() {
             continue;
         }
         if (b.fromAlly) {
+            // Check hit against any Online Player in the Global Server
+            let hitOnlinePlayer = false;
+            Object.values(networkPlayers).forEach(rp => {
+                if (!hitOnlinePlayer && Math.hypot(b.x - rp.x, b.y - rp.y) < 18 + b.radius) {
+                    hitOnlinePlayer = true;
+                    sendNetworkPacket({ type: "PLAYER_HIT", targetId: rp.id, attackerId: player.id, dmg: b.dmg });
+                    floatingTexts.push({ x: rp.x, y: rp.y - 18, text: `-${b.dmg}`, color: "#00d2ff", timer: 30 });
+                }
+            });
+            if (hitOnlinePlayer) {
+                bullets.splice(i, 1);
+                continue;
+            }
+
             for (let j = enemies.length - 1; j >= 0; j--) {
                 const e = enemies[j];
                 if (Math.hypot(b.x - e.x, b.y - e.y) < e.radius + b.radius) {
@@ -1131,7 +1342,7 @@ function update() {
                     break;
                 }
             }
-        } else {
+        } else if (!b.shooterId) {
             if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + b.radius) {
                 player.hp -= b.dmg;
                 updateHUD();
@@ -1145,7 +1356,6 @@ function update() {
         }
     }
 
-    // Enemies AI
     for (const e of enemies) {
         const dist = Math.hypot(player.x - e.x, player.y - e.y);
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
@@ -1206,13 +1416,11 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    // 1. Realistic Soft Ground Drop-Shadow
     ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
     ctx.beginPath();
     ctx.ellipse(0, 20, 14, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Dynamic Aura / 10% Boss Overdrive Glow
     if (bossMotion || aura) {
         ctx.save();
         ctx.shadowColor = bossMotion ? "#e056fd" : aura;
@@ -1225,13 +1433,11 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
         ctx.restore();
     }
 
-    // 3. Stickman Limbs with Metallic Shading
     ctx.strokeStyle = color;
     ctx.lineWidth = 3.6;
     ctx.lineCap = "round";
 
     const swing = Math.sin(walkAnim) * 7.5;
-    // Legs
     ctx.beginPath();
     ctx.moveTo(0, 6);
     ctx.lineTo(-6 + swing, 19);
@@ -1239,13 +1445,11 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
     ctx.lineTo(6 - swing, 19);
     ctx.stroke();
 
-    // Torso
     ctx.beginPath();
     ctx.moveTo(0, -10);
     ctx.lineTo(0, 6);
     ctx.stroke();
 
-    // 3D Shaded Head
     const headGrad = ctx.createRadialGradient(-2, -18, 1, 0, -16, 8);
     headGrad.addColorStop(0, "#ffffff");
     headGrad.addColorStop(0.35, color);
@@ -1256,7 +1460,6 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
     ctx.fill();
     ctx.stroke();
 
-    // Aiming Arm & Realistic Weapon
     const cos = Math.cos(aimAngle);
     const sin = Math.sin(aimAngle);
     ctx.beginPath();
@@ -1274,7 +1477,6 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
         ctx.moveTo(cos * 8, -5 + sin * 8);
         ctx.lineTo(cos * 22, -5 + sin * 22);
         ctx.stroke();
-        // Glowing Energy Barrel
         ctx.strokeStyle = wpnColor;
         ctx.lineWidth = 2.2;
         ctx.beginPath();
@@ -1301,14 +1503,12 @@ function draw() {
     }
 
     const cfg = getStageConfig(currentStage);
-    // 1. Realistic Gradient Biome Lighting
     const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
     bgGrad.addColorStop(0, cfg.biome.bgTop);
     bgGrad.addColorStop(1, cfg.biome.bgBot);
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Perspective Tactical Grid
     ctx.strokeStyle = cfg.biome.grid;
     ctx.lineWidth = 1;
     for (let x = 0; x < canvas.width; x += 50) {
@@ -1318,7 +1518,6 @@ function draw() {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
     }
 
-    // 3. Biome 2.5D Environment Pillars / Trees with Shadows
     for (const p of stageProps) {
         ctx.fillStyle = "rgba(0,0,0,0.35)";
         ctx.beginPath();
@@ -1333,9 +1532,7 @@ function draw() {
         ctx.stroke();
     }
 
-    // 4. Portals & Stage NPC
     if (activeMode === "STORY") {
-        // Next Stage Portal (Right)
         const nextUnlocked = currentStage < maxUnlockedStage;
         ctx.save();
         ctx.shadowColor = nextUnlocked ? "#00d2ff" : "#e74c3c";
@@ -1353,7 +1550,6 @@ function draw() {
         ctx.textAlign = "center";
         ctx.fillText(`Stage ${Math.min(100, currentStage + 1)} ->`, 795, 214);
 
-        // Prev Stage Portal (Left)
         if (currentStage > 1) {
             ctx.beginPath();
             ctx.arc(45, 250, 24, 0, Math.PI * 2);
@@ -1364,7 +1560,6 @@ function draw() {
             ctx.fillText(`<- St.${currentStage - 1}`, 45, 216);
         }
 
-        // Stage Quest NPC
         const npcX = 220, npcY = 115;
         drawRealisticStickman(npcX, npcY, "#f1c40f", 0, 0, 1.08, "#f39c12", false, "#ffd700", false);
         ctx.fillStyle = questState === "READY_TO_CLAIM" ? "#2ecc71" : "#ffd700";
@@ -1376,7 +1571,6 @@ function draw() {
         ctx.fillText(cfg.npcName, npcX, npcY + 34);
     }
 
-    // 5. Collectible Loot Drops (Coins, Gems, Chests)
     for (const ld of lootDrops) {
         ctx.save();
         ctx.shadowColor = ld.type === "CHEST" ? "#ffd700" : (ld.type === "GEM" ? "#00d2ff" : "#2ecc71");
@@ -1388,7 +1582,6 @@ function draw() {
         ctx.restore();
     }
 
-    // 6. Enemies & Bosses
     for (const e of enemies) {
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
         const scale = e.isBoss ? 1.6 : 1.0;
@@ -1406,7 +1599,32 @@ function draw() {
         ctx.fillRect(e.x - barW / 2, e.y - e.radius - 14, barW * Math.max(0, e.hp / e.maxHp), 6);
     }
 
-    // 7. Player Melee Slash Shader
+    // Draw ALL Connected Online Players in the Global Server!
+    Object.values(networkPlayers).forEach(rp => {
+        drawRealisticStickman(
+            rp.x, rp.y,
+            rp.color || "#00d2ff",
+            rp.aimAngle || 0,
+            rp.walkAnim || 0,
+            1.08,
+            rp.aura,
+            rp.attackStyle === "gun",
+            rp.wpnColor || "#ff5555",
+            rp.bossMotion
+        );
+
+        ctx.fillStyle = "#00d2ff";
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`🌐 Lv.${rp.level || 1} ${rp.username} (${rp.hp} HP)`, rp.x, rp.y - 36);
+
+        const barW = 54;
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(rp.x - barW / 2, rp.y - 31, barW, 5);
+        ctx.fillStyle = "#00d2ff";
+        ctx.fillRect(rp.x - barW / 2, rp.y - 31, barW * Math.max(0, (rp.hp || 100) / (rp.maxHp || 100)), 5);
+    });
+
     if (player.attackVisualTimer > 0) {
         ctx.save();
         ctx.shadowColor = player.weaponColor;
@@ -1419,7 +1637,6 @@ function draw() {
         ctx.restore();
     }
 
-    // 8. Player Stickman
     drawRealisticStickman(
         player.x, player.y,
         player.race.color,
@@ -1437,7 +1654,6 @@ function draw() {
     ctx.textAlign = "center";
     ctx.fillText(`Lv.${player.level} ${player.username} [${player.heroClass.name}]`, player.x, player.y - 30);
 
-    // 9. Glowing Bullets & Particles
     for (const b of bullets) {
         ctx.save();
         ctx.shadowColor = b.color;
@@ -1470,17 +1686,16 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// ================= STARTUP AUTO-LOGIN CHECK =================
+// ================= STARTUP AUTO-LOGIN & GLOBAL SERVER JOIN =================
 const hadSave = loadSavedProgress();
 applyStats();
-renderLeaderboard(getLeaderboardData());
+mergeIntoGlobalLeaderboard(player.username, player.score);
 
 if (hadSave) {
-    // Auto-Login! Never asks to log in again on reload!
     document.getElementById('login-modal').style.display = 'none';
-    initOnlineMultiplayer(player.username);
+    initSingleGlobalServer();
     loadStage(currentStage);
-    showToast(`Auto-Logged In as ${player.username} (Stage ${currentStage} / 100)!`);
+    showToast(`Auto-Connected to Global Server as ${player.username}!`);
 } else {
     document.getElementById('login-modal').style.display = 'flex';
     loadStage(1);
