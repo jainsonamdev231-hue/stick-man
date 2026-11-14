@@ -58,7 +58,7 @@ function playSound(type) {
 
 document.getElementById('btn-sound').addEventListener('click', () => {
     soundEnabled = !soundEnabled;
-    document.getElementById('btn-sound').innerText = soundEnabled ? "🔊 SFX: ON" : "🔇 SFX: OFF";
+    document.getElementById('btn-sound').innerText = soundEnabled ? "SFX: ON" : "SFX: OFF";
 });
 
 // ================= RACES & CLASSES GACHA TABLES =================
@@ -80,7 +80,7 @@ const CLASSES = [
     { name: "Astral Emperor", rarity: "Mythic", chance: 1, hpAdd: 250, dmgMult: 3.5, spdMult: 1.6, fireRateMult: 0.55, extraShots: 2 }
 ];
 
-// ================= ALL WEAPONS CATALOG (BUY ONCE -> OWN FOREVER!) =================
+// ================= ALL WEAPONS CATALOG =================
 const WEAPON_CATALOG = [
     { id: "pistol", name: "Pulse Pistol", type: "gun", dmg: 12, coins: 0, cores: 0, cd: 14, desc: "Starter Energy Sidearm" },
     { id: "katana", name: "Shadow Katana", type: "melee", dmg: 28, coins: 30, cores: 0, cd: 16, desc: "High-Crit Ninja Blade" },
@@ -146,7 +146,7 @@ let maxUnlockedStage = 1;
 let questState = "AVAILABLE";
 let questKills = 0;
 
-let activeMode = "STORY"; // "STORY", "ARENA", "ONLINE_PVP"
+let activeMode = "STORY";
 let activeDialogue = null;
 let isSpinning = false;
 let screenShake = 0;
@@ -184,7 +184,7 @@ function initSingleGlobalServer() {
 
     peer.on('open', () => {
         isMasterHost = true;
-        document.getElementById('ui-peer-status').innerText = "🌐 Global Host";
+        document.getElementById('ui-peer-status').innerText = "Global Host";
         document.getElementById('online-status').innerText = "Active Global Host (All devices auto-join)";
         updateOnlineCountUI();
 
@@ -211,7 +211,7 @@ function connectAsGlobalClient() {
         hostConnection = peer.connect(GLOBAL_MASTER_ID, { reliable: true });
 
         hostConnection.on('open', () => {
-            document.getElementById('ui-peer-status').innerText = "🌐 Global Connected";
+            document.getElementById('ui-peer-status').innerText = "Global Connected";
             document.getElementById('online-status').innerText = "Synced with Global Server!";
             sendMyStateToGlobalServer();
         });
@@ -310,7 +310,7 @@ function handleIncomingGlobalData(data, senderConn) {
             showToast(`Defeated ${data.victimName}! (+35 Coins, +5 Gems) [${allyRoundWins}/5]`);
             if (allyRoundWins >= 5) {
                 player.coins += 100;
-                showToast(`🏆 GLOBAL PVP SERIES WON! (+100 Bonus Coins)`);
+                showToast(`GLOBAL PVP SERIES WON! (+100 Bonus Coins)`);
                 allyRoundWins = 0;
                 enemyRoundWins = 0;
             }
@@ -433,7 +433,6 @@ function saveProgress() {
     } catch (e) {}
     mergeIntoGlobalLeaderboard(player.username, player.score);
 
-    // Sync with local Python server if running locally
     fetch('/api/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -509,7 +508,7 @@ function renderLeaderboard(players) {
     }
     players.sort((a, b) => b.score - a.score).slice(0, 12).forEach((p, idx) => {
         const isOnline = p.username === player.username || Object.values(networkPlayers).some(np => np.username === p.username);
-        const dot = isOnline ? `<span style="color:#2ecc71;">●</span> ` : `<span style="color:#666;">○</span> `;
+        const dot = isOnline ? `<span style="color:#2ecc71;">[ON]</span> ` : `<span style="color:#777;">[OFF]</span> `;
         const li = document.createElement('li');
         li.innerHTML = `<span>${dot}#${idx + 1} <b>${p.username}</b></span><span style="color:#ffd700;">${p.score} pts</span>`;
         list.appendChild(li);
@@ -530,8 +529,8 @@ function getStageConfig(stageNum) {
         stage: s,
         biome,
         isBossStage,
-        npcName: `${biome.npc} (St.${s})`,
-        targetName: isBossStage ? `${biome.boss} [St.${s} Boss]` : `${biome.mob} Lv.${s}`,
+        npcName: `${biome.npc} (Stage ${s})`,
+        targetName: isBossStage ? `${biome.boss} (Boss)` : `${biome.mob} Lv.${s}`,
         reqKills,
         enemyHp,
         enemyDmg,
@@ -620,8 +619,8 @@ function updateHUD() {
     document.getElementById('ui-class-spins').innerText = player.classSpins;
 
     document.getElementById('ui-stage-title').innerText = activeMode === "STORY"
-        ? `STAGE ${currentStage} / 100 — ${cfg.biome.name} ${cfg.isBossStage ? "(🔥 BOSS)" : ""}`
-        : (activeMode === "ONLINE_PVP" ? "🌐 GLOBAL SERVER PVP ARENA" : `⚔️ RIVALS ARENA (${arenaTeamSize}v${arenaTeamSize})`);
+        ? `STAGE ${currentStage} / 100 - ${cfg.biome.name} ${cfg.isBossStage ? "[BOSS]" : ""}`
+        : (activeMode === "ONLINE_PVP" ? "GLOBAL SERVER PVP ARENA" : `RIVALS ARENA (${arenaTeamSize}v${arenaTeamSize})`);
     document.getElementById('ui-max-stage').innerText = maxUnlockedStage;
 
     const wpn = getEquippedWeapon();
@@ -645,7 +644,7 @@ function renderForgeInventory() {
 
         let btnHtml = "";
         if (isEquipped) {
-            btnHtml = `<button type="button" class="btn btn-equipped">✓ EQUIPPED</button>`;
+            btnHtml = `<button type="button" class="btn btn-equipped">[EQUIPPED]</button>`;
         } else if (isOwned) {
             btnHtml = `<button type="button" class="btn btn-owned" data-id="${wpn.id}">EQUIP (OWNED)</button>`;
         } else {
@@ -765,15 +764,16 @@ function updateQuestTracker() {
     tracker.classList.remove('ready-claim');
 
     if (questState === "AVAILABLE") {
-        title.innerText = `Stage ${currentStage}: Mission Available`;
-        desc.innerText = `Walk to ${cfg.npcName} [Press E or tap TALK] to accept the Stage ${currentStage} quest!`;
+        title.innerText = `Stage ${currentStage} Quest: Talk to NPC`;
+        desc.innerText = `Walk to ${cfg.npcName} and press [E] or tap TALK to accept your mission (Defeat ${cfg.reqKills} ${cfg.targetName}).`;
     } else if (questState === "ACTIVE") {
-        title.innerText = `Stage ${currentStage}: Hunt in Progress`;
-        desc.innerText = `Defeat ${questKills} / ${cfg.reqKills} enemies (${cfg.targetName}). Then return to ${cfg.npcName}!`;
+        const remaining = Math.max(0, cfg.reqKills - questKills);
+        title.innerText = `Stage ${currentStage}: Defeat Villains (${questKills} / ${cfg.reqKills})`;
+        desc.innerText = `Target: ${cfg.targetName} (${remaining} left to defeat). After defeating all ${cfg.reqKills}, return to ${cfg.npcName}!`;
     } else if (questState === "READY_TO_CLAIM") {
         tracker.classList.add('ready-claim');
-        title.innerText = `✅ STAGE ${currentStage} CLEAR — CLAIM REWARD!`;
-        desc.innerText = `Return to ${cfg.npcName} and press [E] or TALK to claim +${cfg.rewardCoins} Coins, +${cfg.rewardXp} XP & unlock Stage ${Math.min(100, currentStage + 1)}!`;
+        title.innerText = `[CLEAR!] Stage ${currentStage} Complete - Claim Reward`;
+        desc.innerText = `Walk back to ${cfg.npcName} and press [E] or tap TALK to claim +${cfg.rewardCoins} Coins, +${cfg.rewardXp} XP & unlock Stage ${Math.min(100, currentStage + 1)}!`;
     }
 }
 
@@ -784,10 +784,10 @@ function interactNPC() {
     }
     if (activeMode !== "STORY") return;
     const npcX = 220, npcY = 115;
-    if (Math.hypot(player.x - npcX, player.y - npcY) < 80) {
+    if (Math.hypot(player.x - npcX, player.y - npcY) < 85) {
         openStageDialogue();
     } else {
-        showToast("Walk closer to the Stage NPC (Gold exclamation mark) to talk!");
+        showToast("Walk closer to the Stage NPC (Gold ! mark) to talk!");
     }
 }
 
@@ -803,8 +803,8 @@ function openStageDialogue() {
     rewardBanner.classList.add('hidden');
 
     if (questState === "AVAILABLE") {
-        text.innerText = `Welcome to Stage ${currentStage} (${cfg.biome.name})! Clear out ${cfg.reqKills} ${cfg.targetName} in this sector, then report back to me for your bounty and Stage ${Math.min(100, currentStage + 1)} clearance!`;
-        rewardBanner.innerText = `Reward: +${cfg.rewardCoins} Coins, +${cfg.rewardXp} XP, +${cfg.rewardGems} Gems ${cfg.isBossStage ? "& +1 Race/Class Spin!" : ""}`;
+        text.innerText = `Mission Briefing (Stage ${currentStage} - ${cfg.biome.name}): You must defeat ${cfg.reqKills} ${cfg.targetName} in this area. Once all ${cfg.reqKills} are defeated, come back and talk to me to receive your reward and unlock Stage ${Math.min(100, currentStage + 1)}!`;
+        rewardBanner.innerText = `Mission Reward: +${cfg.rewardCoins} Coins, +${cfg.rewardXp} XP, +${cfg.rewardGems} Gems ${cfg.isBossStage ? "& +1 Race/Class Spin!" : ""}`;
         rewardBanner.classList.remove('hidden');
         btn.innerText = "Accept Mission [E]";
         activeDialogue = () => {
@@ -814,17 +814,18 @@ function openStageDialogue() {
                 spawnStageMob(cfg, 660, 250, true);
             }
             updateQuestTracker();
-            showToast(`Stage ${currentStage} Mission Started!`);
+            showToast(`Mission Started: Defeat ${cfg.reqKills} ${cfg.targetName}!`);
         };
     } else if (questState === "ACTIVE") {
-        text.innerText = `Keep fighting! You have defeated ${questKills} / ${cfg.reqKills} targets on Stage ${currentStage}. Return to me as soon as the objective is complete!`;
-        btn.innerText = "Back to Combat [E]";
+        const remaining = Math.max(0, cfg.reqKills - questKills);
+        text.innerText = `Mission In Progress: You have defeated ${questKills} out of ${cfg.reqKills} ${cfg.targetName} (${remaining} remaining). Defeat the rest and return to me!`;
+        btn.innerText = "Continue Fighting [E]";
         activeDialogue = () => {};
     } else if (questState === "READY_TO_CLAIM") {
-        text.innerText = `Phenomenal victory! Stage ${currentStage} is secure. Here is your reward, and I have unlocked the eastern portal to Stage ${Math.min(100, currentStage + 1)}!`;
-        rewardBanner.innerText = `🎁 CLAIMED: +${cfg.rewardCoins} Coins, +${cfg.rewardXp} XP, +${cfg.rewardGems} Gems ${cfg.isBossStage ? "& +1 Class/Race Spin!" : ""}`;
+        text.innerText = `Mission Accomplished! You defeated all ${cfg.reqKills} ${cfg.targetName} on Stage ${currentStage}. Here is your reward, and Stage ${Math.min(100, currentStage + 1)} is now unlocked!`;
+        rewardBanner.innerText = `REWARD CLAIMED: +${cfg.rewardCoins} Coins, +${cfg.rewardXp} XP, +${cfg.rewardGems} Gems ${cfg.isBossStage ? "& +1 Class/Race Spin!" : ""}`;
         rewardBanner.classList.remove('hidden');
-        btn.innerText = "Claim Bounty & Unlock Next Stage [E]";
+        btn.innerText = "Claim Reward & Unlock Next Stage [E]";
         activeDialogue = () => {
             playSound("levelup");
             player.coins += cfg.rewardCoins;
@@ -844,7 +845,7 @@ function openStageDialogue() {
             questKills = 0;
             updateQuestTracker();
             updateHUD();
-            showToast(`Stage ${maxUnlockedStage} Unlocked! Walk into the right Portal or click Next Stage ▶!`);
+            showToast(`Stage ${maxUnlockedStage} Unlocked! Walk into the right Portal or tap Next Stage!`);
         };
     }
 
@@ -1084,7 +1085,7 @@ function handleEnemyDeath(e, index) {
         if (questKills >= cfg.reqKills) {
             questState = "READY_TO_CLAIM";
             playSound("levelup");
-            showToast(`Stage ${currentStage} Objective Complete! Return to ${cfg.npcName} [E] for your reward!`);
+            showToast(`Stage ${currentStage} Complete! Talk to ${cfg.npcName} [E] for your reward!`);
         }
         updateQuestTracker();
     }
@@ -1590,7 +1591,6 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
     ctx.fill();
     ctx.stroke();
 
-    // Rare Race Cosmetics (Halo, Horns, Void Orbs)
     if (cosmetic === "halo") {
         ctx.strokeStyle = "#ffd700";
         ctx.lineWidth = 2.2;
@@ -1664,7 +1664,6 @@ function drawMinimapRadar() {
     ctx.fillRect(mapX, mapY, mapW, mapH);
     ctx.strokeRect(mapX, mapY, mapW, mapH);
 
-    // NPC & Portals on Radar
     if (activeMode === "STORY") {
         ctx.fillStyle = "#ffd700";
         ctx.fillRect(mapX + 220 * scaleX - 2, mapY + 115 * scaleY - 2, 4, 4);
@@ -1672,20 +1671,17 @@ function drawMinimapRadar() {
         ctx.fillRect(mapX + 795 * scaleX - 2, mapY + 250 * scaleY - 2, 4, 4);
     }
 
-    // Enemies on Radar
     enemies.forEach(e => {
         ctx.fillStyle = e.isBoss ? "#ff0055" : "#ff5555";
         const s = e.isBoss ? 5 : 3;
         ctx.fillRect(mapX + e.x * scaleX - s / 2, mapY + e.y * scaleY - s / 2, s, s);
     });
 
-    // Online Players on Radar
     Object.values(networkPlayers).forEach(rp => {
         ctx.fillStyle = "#00d2ff";
         ctx.fillRect(mapX + rp.x * scaleX - 2, mapY + rp.y * scaleY - 2, 4, 4);
     });
 
-    // Self Player on Radar
     ctx.fillStyle = "#2ecc71";
     ctx.beginPath();
     ctx.arc(mapX + player.x * scaleX, mapY + player.y * scaleY, 3, 0, Math.PI * 2);
@@ -1760,9 +1756,9 @@ function draw() {
         const npcX = 220, npcY = 115;
         drawRealisticStickman(npcX, npcY, "#f1c40f", 0, 0, 1.08, "#f39c12", false, "#ffd700", false, "halo");
         ctx.fillStyle = questState === "READY_TO_CLAIM" ? "#2ecc71" : "#ffd700";
-        ctx.font = "bold 18px sans-serif";
+        ctx.font = "bold 16px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(questState === "READY_TO_CLAIM" ? "🎁 CLAIM!" : (questState === "ACTIVE" ? "..." : "! QUEST"), npcX, npcY - 34);
+        ctx.fillText(questState === "READY_TO_CLAIM" ? "[CLAIM REWARD!]" : (questState === "ACTIVE" ? "[IN PROGRESS]" : "[! QUEST]"), npcX, npcY - 34);
         ctx.fillStyle = "#fff";
         ctx.font = "bold 12px sans-serif";
         ctx.fillText(cfg.npcName, npcX, npcY + 34);
@@ -1804,7 +1800,6 @@ function draw() {
         ctx.fillRect(e.x - barW / 2, e.y - e.radius - 14, barW * Math.max(0, e.hp / e.maxHp), 6);
     }
 
-    // Draw Dash / 10% Motion Afterimages
     for (const ai of player.afterimages) {
         ctx.save();
         ctx.globalAlpha = ai.alpha;
@@ -1812,7 +1807,6 @@ function draw() {
         ctx.restore();
     }
 
-    // Draw ALL Connected Online Players in the Global Server!
     Object.values(networkPlayers).forEach(rp => {
         drawRealisticStickman(
             rp.x, rp.y,
@@ -1830,7 +1824,7 @@ function draw() {
         ctx.fillStyle = "#00d2ff";
         ctx.font = "bold 12px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(`🌐 Lv.${rp.level || 1} ${rp.username} (${rp.hp} HP)`, rp.x, rp.y - 36);
+        ctx.fillText(`[ON] Lv.${rp.level || 1} ${rp.username} (${rp.hp} HP)`, rp.x, rp.y - 36);
 
         const barW = 54;
         ctx.fillStyle = "rgba(0,0,0,0.7)";
