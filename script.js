@@ -1,14 +1,74 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// ================= PROCEDURAL SOUND ENGINE (WEB AUDIO SYNTHESIZER) =================
+let soundEnabled = true;
+let audioCtx = null;
+
+function playSound(type) {
+    if (!soundEnabled) return;
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === "shoot") {
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(110, now + 0.09);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.09);
+            osc.start(now); osc.stop(now + 0.09);
+        } else if (type === "slash") {
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(240, now);
+            osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+            osc.start(now); osc.stop(now + 0.12);
+        } else if (type === "coin") {
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.setValueAtTime(1175, now + 0.06);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.14);
+            osc.start(now); osc.stop(now + 0.14);
+        } else if (type === "levelup") {
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(660, now + 0.1);
+            osc.frequency.setValueAtTime(880, now + 0.2);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+            osc.start(now); osc.stop(now + 0.35);
+        } else if (type === "spin") {
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(600, now);
+            gain.gain.setValueAtTime(0.04, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.04);
+            osc.start(now); osc.stop(now + 0.04);
+        }
+    } catch (e) {}
+}
+
+document.getElementById('btn-sound').addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    document.getElementById('btn-sound').innerText = soundEnabled ? "🔊 SFX: ON" : "🔇 SFX: OFF";
+});
+
 // ================= RACES & CLASSES GACHA TABLES =================
 const RACES = [
-    { name: "Human", rarity: "Common", chance: 45, hpMult: 1.0, dmgMult: 1.0, spdMult: 1.0, rangeBonus: 0, bulletMult: 1.0, multiShot: 1, regen: 0, lifesteal: 0, color: "#3498db", aura: null },
-    { name: "Beastkin", rarity: "Uncommon", chance: 25, hpMult: 1.3, dmgMult: 1.25, spdMult: 1.35, rangeBonus: 8, bulletMult: 1.15, multiShot: 1, regen: 0.02, lifesteal: 0, color: "#e67e22", aura: "#2ecc71" },
-    { name: "Frost Elf", rarity: "Rare", chance: 15, hpMult: 1.5, dmgMult: 1.6, spdMult: 1.25, rangeBonus: 22, bulletMult: 1.35, multiShot: 1, regen: 0.05, lifesteal: 0, color: "#00cec9", aura: "#3498db" },
-    { name: "Shadow Demon", rarity: "Epic", chance: 9, hpMult: 1.8, dmgMult: 2.0, spdMult: 1.35, rangeBonus: 16, bulletMult: 1.4, multiShot: 1, regen: 0, lifesteal: 0.15, color: "#9b59b6", aura: "#c56cf0" },
-    { name: "Celestial", rarity: "Legendary", chance: 5, hpMult: 2.4, dmgMult: 2.5, spdMult: 1.45, rangeBonus: 26, bulletMult: 1.5, multiShot: 2, regen: 0.18, lifesteal: 0.08, color: "#f1c40f", aura: "#f39c12" },
-    { name: "Void Monarch", rarity: "Mythic", chance: 1, hpMult: 3.5, dmgMult: 4.0, spdMult: 1.65, rangeBonus: 40, bulletMult: 1.75, multiShot: 3, regen: 0.25, lifesteal: 0.22, color: "#ff3838", aura: "#ff0055" }
+    { name: "Human", rarity: "Common", chance: 45, hpMult: 1.0, dmgMult: 1.0, spdMult: 1.0, rangeBonus: 0, bulletMult: 1.0, multiShot: 1, regen: 0, lifesteal: 0, color: "#3498db", aura: null, cosmetic: "none" },
+    { name: "Beastkin", rarity: "Uncommon", chance: 25, hpMult: 1.3, dmgMult: 1.25, spdMult: 1.35, rangeBonus: 8, bulletMult: 1.15, multiShot: 1, regen: 0.02, lifesteal: 0, color: "#e67e22", aura: "#2ecc71", cosmetic: "ears" },
+    { name: "Frost Elf", rarity: "Rare", chance: 15, hpMult: 1.5, dmgMult: 1.6, spdMult: 1.25, rangeBonus: 22, bulletMult: 1.35, multiShot: 1, regen: 0.05, lifesteal: 0, color: "#00cec9", aura: "#3498db", cosmetic: "crown" },
+    { name: "Shadow Demon", rarity: "Epic", chance: 9, hpMult: 1.8, dmgMult: 2.0, spdMult: 1.35, rangeBonus: 16, bulletMult: 1.4, multiShot: 1, regen: 0, lifesteal: 0.15, color: "#9b59b6", aura: "#c56cf0", cosmetic: "horns" },
+    { name: "Celestial", rarity: "Legendary", chance: 5, hpMult: 2.4, dmgMult: 2.5, spdMult: 1.45, rangeBonus: 26, bulletMult: 1.5, multiShot: 2, regen: 0.18, lifesteal: 0.08, color: "#f1c40f", aura: "#f39c12", cosmetic: "halo" },
+    { name: "Void Monarch", rarity: "Mythic", chance: 1, hpMult: 3.5, dmgMult: 4.0, spdMult: 1.65, rangeBonus: 40, bulletMult: 1.75, multiShot: 3, regen: 0.25, lifesteal: 0.22, color: "#ff3838", aura: "#ff0055", cosmetic: "void_orbs" }
 ];
 
 const CLASSES = [
@@ -75,8 +135,10 @@ const player = {
     score: 0,
     attackCooldown: 0,
     attackVisualTimer: 0,
+    dashCooldown: 0,
     facingAngle: 0,
-    walkAnim: 0
+    walkAnim: 0,
+    afterimages: []
 };
 
 let currentStage = 1;
@@ -102,33 +164,28 @@ let stageProps = [];
 let floatingTexts = [];
 const keys = {};
 
-// ================= SINGLE GLOBAL SERVER ENGINE (EVERYONE JOINS ONE SERVER!) =================
-const GLOBAL_MASTER_ID = "stickman-force-global-main-server-v1";
+// ================= SINGLE GLOBAL SERVER ENGINE =================
+const GLOBAL_MASTER_ID = "stickman-force-global-main-server-v2";
 let peer = null;
 let isMasterHost = false;
-let hostConnection = null;     // Used if we are a Client connected to the Master Server
-let clientConnections = [];    // Used if we are the Master Server holding all players
-let networkPlayers = {};       // Map of { [playerId]: playerState } for all live online players
-let globalLeaderboard = [];    // Unified Leaderboard shared across all connected devices
+let hostConnection = null;
+let clientConnections = [];
+let networkPlayers = {};
+let globalLeaderboard = [];
 
 function initSingleGlobalServer() {
     if (typeof Peer === "undefined") return;
-
-    // Clean up any existing peer
     if (peer) {
         try { peer.destroy(); } catch (e) {}
     }
 
-    document.getElementById('ui-peer-status').innerText = "Joining Global Server...";
-
-    // Step 1: Try to become the Master Global Server (`GLOBAL_MASTER_ID`)
+    document.getElementById('ui-peer-status').innerText = "Joining Global...";
     peer = new Peer(GLOBAL_MASTER_ID);
 
     peer.on('open', () => {
-        // We successfully claimed the Master Global Server slot!
         isMasterHost = true;
-        document.getElementById('ui-peer-status').innerText = "🌐 Global Server Host";
-        document.getElementById('online-status').innerText = "Active Global Host (All devices auto-join you)";
+        document.getElementById('ui-peer-status').innerText = "🌐 Global Host";
+        document.getElementById('online-status').innerText = "Active Global Host (All devices auto-join)";
         updateOnlineCountUI();
 
         peer.on('connection', conn => {
@@ -137,38 +194,30 @@ function initSingleGlobalServer() {
     });
 
     peer.on('error', err => {
-        // Step 2: If `GLOBAL_MASTER_ID` is already running on another device, auto-join it as a Client!
         if (err.type === 'unavailable-id') {
             isMasterHost = false;
             connectAsGlobalClient();
         } else {
-            document.getElementById('ui-peer-status').innerText = "Reconnecting...";
+            document.getElementById('ui-peer-status').innerText = "Syncing...";
         }
     });
 }
 
 function connectAsGlobalClient() {
     try { peer.destroy(); } catch (e) {}
-    peer = new Peer(); // Automatic client ID
+    peer = new Peer();
 
     peer.on('open', () => {
-        document.getElementById('ui-peer-status').innerText = "Connecting to Global Host...";
         hostConnection = peer.connect(GLOBAL_MASTER_ID, { reliable: true });
 
         hostConnection.on('open', () => {
-            document.getElementById('ui-peer-status').innerText = "🌐 Connected (Global Server)";
+            document.getElementById('ui-peer-status').innerText = "🌐 Global Connected";
             document.getElementById('online-status').innerText = "Synced with Global Server!";
-            showToast("Connected to Global Multiplayer Server!");
             sendMyStateToGlobalServer();
         });
 
-        hostConnection.on('data', data => {
-            handleIncomingGlobalData(data, null);
-        });
-
+        hostConnection.on('data', data => handleIncomingGlobalData(data, null));
         hostConnection.on('close', () => {
-            // If the Master Host device leaves, automatically promote one of the remaining devices to Master Host!
-            document.getElementById('ui-peer-status').innerText = "Host Migrating...";
             setTimeout(initSingleGlobalServer, 1500);
         });
     });
@@ -176,17 +225,11 @@ function connectAsGlobalClient() {
 
 function setupHostClientConnection(conn) {
     clientConnections.push(conn);
-
     conn.on('open', () => {
         updateOnlineCountUI();
-        showToast("A new player joined the Global Server!");
         broadcastWorldSnapshot();
     });
-
-    conn.on('data', data => {
-        handleIncomingGlobalData(data, conn);
-    });
-
+    conn.on('data', data => handleIncomingGlobalData(data, conn));
     conn.on('close', () => {
         clientConnections = clientConnections.filter(c => c !== conn);
         if (conn.playerId && networkPlayers[conn.playerId]) {
@@ -207,21 +250,15 @@ function handleIncomingGlobalData(data, senderConn) {
             networkPlayers[p.id] = p;
             mergeIntoGlobalLeaderboard(p.username, p.score);
         }
-        if (isMasterHost) {
-            broadcastWorldSnapshot();
-        }
+        if (isMasterHost) broadcastWorldSnapshot();
         updateOnlineCountUI();
     } else if (data.type === "WORLD_SNAPSHOT") {
-        // Received from Master Host: contains all connected players + unified leaderboard
         const allPlayers = data.players || {};
         const nextMap = {};
         Object.keys(allPlayers).forEach(pid => {
-            if (pid !== player.id) {
-                nextMap[pid] = allPlayers[pid];
-            }
+            if (pid !== player.id) nextMap[pid] = allPlayers[pid];
         });
         networkPlayers = nextMap;
-
         if (Array.isArray(data.leaderboard)) {
             globalLeaderboard = data.leaderboard;
             renderLeaderboard(globalLeaderboard);
@@ -268,6 +305,7 @@ function handleIncomingGlobalData(data, senderConn) {
             player.coins += 35;
             player.gems += 5;
             player.score += 300;
+            playSound("levelup");
             document.getElementById('score-ally').innerText = allyRoundWins;
             showToast(`Defeated ${data.victimName}! (+35 Coins, +5 Gems) [${allyRoundWins}/5]`);
             if (allyRoundWins >= 5) {
@@ -302,6 +340,7 @@ function getMyNetworkState() {
         walkAnim: Number(player.walkAnim.toFixed(2)),
         color: player.race.color,
         aura: player.race.aura,
+        cosmetic: player.race.cosmetic,
         className: player.heroClass.name,
         attackStyle: player.attackStyle,
         wpnColor: player.weaponColor,
@@ -349,14 +388,12 @@ function broadcastWorldSnapshot() {
 }
 
 function updateOnlineCountUI() {
-    // Cleanup stale players (>8 seconds silent)
     const totalOnline = 1 + Object.keys(networkPlayers).length;
     document.getElementById('ui-online-count').innerText = totalOnline;
     document.getElementById('modal-online-count').innerText = totalOnline;
-    document.getElementById('ui-sidebar-online').innerText = `${totalOnline} Player(s) in Server`;
+    document.getElementById('ui-sidebar-online').innerText = `${totalOnline} Player(s) Online`;
 }
 
-// Broadcast live player positions 12 times per second
 setInterval(() => {
     if (player.username !== "Guest") {
         sendMyStateToGlobalServer();
@@ -395,6 +432,13 @@ function saveProgress() {
         localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch (e) {}
     mergeIntoGlobalLeaderboard(player.username, player.score);
+
+    // Sync with local Python server if running locally
+    fetch('/api/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: player.username, score: player.score })
+    }).catch(() => {});
 }
 
 function loadSavedProgress() {
@@ -418,7 +462,7 @@ function loadSavedProgress() {
         player.raceSpins = d.raceSpins ?? 2;
         player.classSpins = d.classSpins ?? 2;
         player.coins = d.coins || 0;
-        player.gems = d.gems || 10;
+        player.gems = d.gems ?? 10;
         player.bossCores = d.bossCores || 0;
         player.unlockedBossMotion = !!d.unlockedBossMotion;
         player.bossMotionActive = !!d.bossMotionActive;
@@ -523,6 +567,7 @@ function gainXp(amount) {
         if (player.level % 2 === 0) player.classSpins++;
         applyStats();
         player.hp = player.maxHp;
+        playSound("levelup");
         floatingTexts.push({ x: player.x, y: player.y - 45, text: `LEVEL UP! Lv.${player.level} (+1 Spin!)`, color: "#ffd700", timer: 90 });
         showToast(`LEVEL UP! You reached Level ${player.level}! (+1 Race Spin)`);
     }
@@ -555,6 +600,7 @@ function updateHUD() {
     document.getElementById('ui-hero').innerText = player.username;
     document.getElementById('ui-level').innerText = player.level;
     document.getElementById('ui-xp').innerText = `${player.xp}/${player.maxXp}`;
+    document.getElementById('ui-xp-fill').style.width = `${Math.min(100, (player.xp / player.maxXp) * 100)}%`;
 
     const raceEl = document.getElementById('ui-race');
     raceEl.innerText = `${player.race.name} (${player.race.rarity})`;
@@ -565,6 +611,7 @@ function updateHUD() {
     classEl.className = `rarity-${player.heroClass.rarity}`;
 
     document.getElementById('ui-hp').innerText = `${Math.max(0, Math.ceil(player.hp))}/${player.maxHp}`;
+    document.getElementById('ui-hp-fill').style.width = `${Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100))}%`;
     document.getElementById('ui-dmg').innerText = player.dmg;
     document.getElementById('ui-coins').innerText = player.coins;
     document.getElementById('ui-gems').innerText = player.gems;
@@ -628,6 +675,7 @@ function handleWeaponAction(wpn) {
     if (player.ownedWeapons.includes(wpn.id)) {
         player.equippedWeaponId = wpn.id;
         player.attackStyle = wpn.type;
+        playSound("coin");
         applyStats();
         saveProgress();
         renderForgeInventory();
@@ -653,6 +701,7 @@ function handleWeaponAction(wpn) {
     player.equippedWeaponId = wpn.id;
     player.attackStyle = wpn.type;
 
+    playSound("levelup");
     applyStats();
     saveProgress();
     renderForgeInventory();
@@ -777,6 +826,7 @@ function openStageDialogue() {
         rewardBanner.classList.remove('hidden');
         btn.innerText = "Claim Bounty & Unlock Next Stage [E]";
         activeDialogue = () => {
+            playSound("levelup");
             player.coins += cfg.rewardCoins;
             player.gems += cfg.rewardGems;
             if (cfg.isBossStage) {
@@ -837,11 +887,13 @@ function triggerRaceSpin() {
     const finalRace = pickWeightedItem(RACES);
     let ticks = 0;
     const interval = setInterval(() => {
+        playSound("spin");
         const preview = RACES[Math.floor(Math.random() * RACES.length)];
         updateRaceModalText(preview);
         ticks++;
         if (ticks >= 20) {
             clearInterval(interval);
+            playSound("levelup");
             player.race = finalRace;
             applyStats();
             saveProgress();
@@ -878,11 +930,13 @@ function triggerClassSpin() {
     const finalClass = pickWeightedItem(CLASSES);
     let ticks = 0;
     const interval = setInterval(() => {
+        playSound("spin");
         const preview = CLASSES[Math.floor(Math.random() * CLASSES.length)];
         updateClassModalText(preview);
         ticks++;
         if (ticks >= 20) {
             clearInterval(interval);
+            playSound("levelup");
             player.heroClass = finalClass;
             applyStats();
             saveProgress();
@@ -900,7 +954,22 @@ function updateClassModalText(c) {
     document.getElementById('spin-class-buffs').innerText = `DMG: ${c.dmgMult}x | HP Bonus: +${c.hpAdd} | Extra Bullets: +${c.extraShots}`;
 }
 
-// ================= COMBAT, LOOT DROPS & BOSS 10% MOTION =================
+// ================= COMBAT, DASH, LOOT DROPS & BOSS 10% MOTION =================
+function performDash() {
+    if (player.dashCooldown > 0 || activeDialogue || isModalOpen()) return;
+    player.dashCooldown = 38;
+    playSound("slash");
+    for (let i = 0; i < 4; i++) {
+        player.afterimages.push({
+            x: player.x + Math.cos(player.facingAngle) * (i * 18),
+            y: player.y + Math.sin(player.facingAngle) * (i * 18),
+            alpha: 0.6
+        });
+    }
+    player.x += Math.cos(player.facingAngle) * 85;
+    player.y += Math.sin(player.facingAngle) * 85;
+}
+
 function performAttack() {
     if (player.attackCooldown > 0 || activeDialogue || isModalOpen()) return;
 
@@ -910,6 +979,7 @@ function performAttack() {
     player.attackCooldown = Math.max(4, Math.round(wpn.cd * c.fireRateMult * modRate));
 
     if (player.attackStyle === "gun") {
+        playSound("shoot");
         const totalShots = (player.race.multiShot || 1) + (c.extraShots || 0);
         const spread = 0.13;
         for (let i = 0; i < totalShots; i++) {
@@ -938,9 +1008,9 @@ function performAttack() {
             });
         }
     } else {
+        playSound("slash");
         player.attackVisualTimer = 10;
         screenShake = 4;
-        // Check Melee Hit on Online Players
         Object.values(networkPlayers).forEach(rp => {
             if (Math.hypot(rp.x - player.x, rp.y - player.y) <= player.attackRange + 18) {
                 sendNetworkPacket({ type: "PLAYER_HIT", targetId: rp.id, attackerId: player.id, dmg: player.dmg });
@@ -958,7 +1028,7 @@ function performAttack() {
 }
 
 function applyDamageToEnemy(e, index, dmgAmount) {
-    const isCrit = Math.random() < 0.2;
+    const isCrit = Math.random() < 0.22;
     const finalDmg = isCrit ? Math.round(dmgAmount * 1.5) : dmgAmount;
     e.hp -= finalDmg;
     if (isCrit) screenShake = 5;
@@ -1013,6 +1083,7 @@ function handleEnemyDeath(e, index) {
         questKills++;
         if (questKills >= cfg.reqKills) {
             questState = "READY_TO_CLAIM";
+            playSound("levelup");
             showToast(`Stage ${currentStage} Objective Complete! Return to ${cfg.npcName} [E] for your reward!`);
         }
         updateQuestTracker();
@@ -1032,6 +1103,7 @@ function handleEnemyDeath(e, index) {
         player.bossCores++;
         player.unlockedBossMotion = true;
         player.bossMotionActive = true;
+        playSound("levelup");
         applyStats();
         floatingTexts.push({ x: e.x, y: e.y - 52, text: "10% JACKPOT: BOSS CORE & MOTION!", color: "#e056fd", timer: 95 });
         showToast("10% JACKPOT! Unlocked Shadow Core Motion [M] & +1 Boss Core!");
@@ -1053,13 +1125,22 @@ function handleEnemyDeath(e, index) {
 // ================= LOGIN & INITIALIZATION =================
 function claimUniqueName() {
     const inputEl = document.getElementById('username-input');
+    const errEl = document.getElementById('login-error');
     const cleanName = (inputEl ? inputEl.value : "").trim();
     if (cleanName.length < 3) {
-        document.getElementById('login-error').innerText = "Hero Name must be at least 3 characters!";
+        errEl.innerText = "Hero Name must be at least 3 characters!";
         return;
     }
+
+    const takenOnline = Object.values(networkPlayers).some(p => p.username && p.username.toLowerCase() === cleanName.toLowerCase());
+    if (takenOnline) {
+        errEl.innerText = "That Hero Name is currently active in the Global Server! Pick another.";
+        return;
+    }
+
     player.username = cleanName;
     document.getElementById('login-modal').style.display = 'none';
+    playSound("levelup");
     saveProgress();
     initSingleGlobalServer();
     loadStage(currentStage);
@@ -1068,6 +1149,10 @@ function claimUniqueName() {
 
 // ================= BUTTON & INPUT LISTENERS =================
 document.getElementById('claim-btn').addEventListener('click', claimUniqueName);
+document.getElementById('username-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); claimUniqueName(); }
+});
+
 document.getElementById('btn-prev-stage').addEventListener('click', () => {
     if (currentStage > 1) {
         activeMode = "STORY";
@@ -1208,6 +1293,7 @@ window.addEventListener('keydown', e => {
     if (e.key === ' ') { e.preventDefault(); performAttack(); }
     if (k === 'e') interactNPC();
     if (k === 'q') toggleAttackStyle();
+    if (k === 'shift') performDash();
     if (k === 'm') toggleBossMotion();
 });
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -1227,9 +1313,27 @@ function bindHold(id, key) {
     btn.addEventListener('mouseup', end);
 }
 bindHold('t-up', 'w'); bindHold('t-down', 's'); bindHold('t-left', 'a'); bindHold('t-right', 'd');
-document.getElementById('t-atk').addEventListener('touchstart', e => { e.preventDefault(); performAttack(); });
-document.getElementById('t-atk').addEventListener('mousedown', () => performAttack());
+
+function autoAimNearest() {
+    if (enemies.length > 0) {
+        let best = enemies[0], minD = Math.hypot(best.x - player.x, best.y - player.y);
+        enemies.forEach(en => {
+            const d = Math.hypot(en.x - player.x, en.y - player.y);
+            if (d < minD) { minD = d; best = en; }
+        });
+        player.facingAngle = Math.atan2(best.y - player.y, best.x - player.x);
+    } else {
+        const netList = Object.values(networkPlayers);
+        if (netList.length > 0) {
+            player.facingAngle = Math.atan2(netList[0].y - player.y, netList[0].x - player.x);
+        }
+    }
+}
+
+document.getElementById('t-atk').addEventListener('touchstart', e => { e.preventDefault(); autoAimNearest(); performAttack(); });
+document.getElementById('t-atk').addEventListener('mousedown', () => { autoAimNearest(); performAttack(); });
 document.getElementById('t-talk').addEventListener('click', interactNPC);
+document.getElementById('t-dash').addEventListener('click', performDash);
 document.getElementById('t-mode').addEventListener('click', toggleAttackStyle);
 document.getElementById('t-motion').addEventListener('click', toggleBossMotion);
 
@@ -1262,6 +1366,9 @@ function update() {
         player.x += (dx / len) * player.spd;
         player.y += (dy / len) * player.spd;
         player.walkAnim += 0.28;
+        if (player.bossMotionActive && Math.random() < 0.35) {
+            player.afterimages.push({ x: player.x, y: player.y, alpha: 0.4 });
+        }
     }
 
     player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
@@ -1269,11 +1376,18 @@ function update() {
 
     if (player.attackCooldown > 0) player.attackCooldown--;
     if (player.attackVisualTimer > 0) player.attackVisualTimer--;
+    if (player.dashCooldown > 0) player.dashCooldown--;
+
+    for (let i = player.afterimages.length - 1; i >= 0; i--) {
+        player.afterimages[i].alpha -= 0.04;
+        if (player.afterimages[i].alpha <= 0) player.afterimages.splice(i, 1);
+    }
 
     for (let i = lootDrops.length - 1; i >= 0; i--) {
         const ld = lootDrops[i];
         ld.timer--;
-        if (Math.hypot(player.x - ld.x, player.y - ld.y) < 34) {
+        if (Math.hypot(player.x - ld.x, player.y - ld.y) < 36) {
+            playSound("coin");
             if (ld.type === "CHEST") {
                 player.coins += ld.amount * 2;
                 player.gems += 10;
@@ -1311,7 +1425,6 @@ function update() {
         }
     }
 
-    // Bullets Update (Hits both Mobs AND Live Online Players!)
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx; b.y += b.vy;
@@ -1320,7 +1433,6 @@ function update() {
             continue;
         }
         if (b.fromAlly) {
-            // Check hit against any Online Player in the Global Server
             let hitOnlinePlayer = false;
             Object.values(networkPlayers).forEach(rp => {
                 if (!hitOnlinePlayer && Math.hypot(b.x - rp.x, b.y - rp.y) < 18 + b.radius) {
@@ -1356,6 +1468,23 @@ function update() {
         }
     }
 
+    for (const al of allies) {
+        if (enemies.length === 0) break;
+        const target = enemies[0];
+        const dist = Math.hypot(target.x - al.x, target.y - al.y);
+        const angle = Math.atan2(target.y - al.y, target.x - al.x);
+        if (dist > 130) {
+            al.x += Math.cos(angle) * al.spd;
+            al.y += Math.sin(angle) * al.spd;
+            al.walkAnim += 0.2;
+        }
+        al.shootTimer--;
+        if (al.shootTimer <= 0) {
+            al.shootTimer = 45;
+            bullets.push({ x: al.x, y: al.y, vx: Math.cos(angle) * 8, vy: Math.sin(angle) * 8, dmg: al.dmg, color: "#00d2ff", fromAlly: true, radius: 4 });
+        }
+    }
+
     for (const e of enemies) {
         const dist = Math.hypot(player.x - e.x, player.y - e.y);
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
@@ -1387,6 +1516,7 @@ function update() {
         if (allyRoundWins >= 5) {
             player.coins += 75;
             player.gems += 10;
+            playSound("levelup");
             saveProgress();
             showToast("VICTORY! Won 5-Round Rivals Series! (+75 Coins & +10 Gems)");
             activeMode = "STORY";
@@ -1410,8 +1540,8 @@ function update() {
     }
 }
 
-// ================= REALISTIC 2.5D GRAPHICS & STICKMAN SHADER RENDERER =================
-function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, hasGun, wpnColor, bossMotion) {
+// ================= REALISTIC 2.5D GRAPHICS, COSMETICS & MINIMAP RADAR =================
+function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, hasGun, wpnColor, bossMotion, cosmetic = "none") {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
@@ -1460,6 +1590,32 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
     ctx.fill();
     ctx.stroke();
 
+    // Rare Race Cosmetics (Halo, Horns, Void Orbs)
+    if (cosmetic === "halo") {
+        ctx.strokeStyle = "#ffd700";
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.ellipse(0, -27, 8, 2.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    } else if (cosmetic === "horns") {
+        ctx.strokeStyle = "#ff3838";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-5, -22); ctx.lineTo(-9, -29);
+        ctx.moveTo(5, -22); ctx.lineTo(9, -29);
+        ctx.stroke();
+    } else if (cosmetic === "void_orbs") {
+        const t = Date.now() * 0.005;
+        for (let i = 0; i < 3; i++) {
+            const ox = Math.cos(t + i * 2.1) * 20;
+            const oy = -6 + Math.sin(t + i * 2.1) * 12;
+            ctx.fillStyle = "#ff0055";
+            ctx.beginPath();
+            ctx.arc(ox, oy, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
     const cos = Math.cos(aimAngle);
     const sin = Math.sin(aimAngle);
     ctx.beginPath();
@@ -1493,6 +1649,47 @@ function drawRealisticStickman(x, y, color, aimAngle, walkAnim, scale, aura, has
     }
     ctx.restore();
 
+    ctx.restore();
+}
+
+function drawMinimapRadar() {
+    const mapX = 12, mapY = 12, mapW = 125, mapH = 74;
+    const scaleX = mapW / canvas.width;
+    const scaleY = mapH / canvas.height;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(10, 12, 22, 0.82)";
+    ctx.strokeStyle = "#454866";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(mapX, mapY, mapW, mapH);
+    ctx.strokeRect(mapX, mapY, mapW, mapH);
+
+    // NPC & Portals on Radar
+    if (activeMode === "STORY") {
+        ctx.fillStyle = "#ffd700";
+        ctx.fillRect(mapX + 220 * scaleX - 2, mapY + 115 * scaleY - 2, 4, 4);
+        ctx.fillStyle = "#00d2ff";
+        ctx.fillRect(mapX + 795 * scaleX - 2, mapY + 250 * scaleY - 2, 4, 4);
+    }
+
+    // Enemies on Radar
+    enemies.forEach(e => {
+        ctx.fillStyle = e.isBoss ? "#ff0055" : "#ff5555";
+        const s = e.isBoss ? 5 : 3;
+        ctx.fillRect(mapX + e.x * scaleX - s / 2, mapY + e.y * scaleY - s / 2, s, s);
+    });
+
+    // Online Players on Radar
+    Object.values(networkPlayers).forEach(rp => {
+        ctx.fillStyle = "#00d2ff";
+        ctx.fillRect(mapX + rp.x * scaleX - 2, mapY + rp.y * scaleY - 2, 4, 4);
+    });
+
+    // Self Player on Radar
+    ctx.fillStyle = "#2ecc71";
+    ctx.beginPath();
+    ctx.arc(mapX + player.x * scaleX, mapY + player.y * scaleY, 3, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
 }
 
@@ -1561,7 +1758,7 @@ function draw() {
         }
 
         const npcX = 220, npcY = 115;
-        drawRealisticStickman(npcX, npcY, "#f1c40f", 0, 0, 1.08, "#f39c12", false, "#ffd700", false);
+        drawRealisticStickman(npcX, npcY, "#f1c40f", 0, 0, 1.08, "#f39c12", false, "#ffd700", false, "halo");
         ctx.fillStyle = questState === "READY_TO_CLAIM" ? "#2ecc71" : "#ffd700";
         ctx.font = "bold 18px sans-serif";
         ctx.textAlign = "center";
@@ -1582,10 +1779,18 @@ function draw() {
         ctx.restore();
     }
 
+    for (const al of allies) {
+        drawRealisticStickman(al.x, al.y, al.color, 0, al.walkAnim, 0.95, null, true, "#00d2ff", false);
+        ctx.fillStyle = "#00d2ff";
+        ctx.font = "11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(al.name, al.x, al.y - 28);
+    }
+
     for (const e of enemies) {
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
         const scale = e.isBoss ? 1.6 : 1.0;
-        drawRealisticStickman(e.x, e.y, e.color, angle, e.walkAnim, scale, e.isBoss ? "#ff3838" : null, true, "#ff3838", false);
+        drawRealisticStickman(e.x, e.y, e.color, angle, e.walkAnim, scale, e.isBoss ? "#ff3838" : null, true, "#ff3838", false, e.isBoss ? "horns" : "none");
 
         ctx.fillStyle = "#fff";
         ctx.font = e.isBoss ? "bold 13px sans-serif" : "11px sans-serif";
@@ -1599,6 +1804,14 @@ function draw() {
         ctx.fillRect(e.x - barW / 2, e.y - e.radius - 14, barW * Math.max(0, e.hp / e.maxHp), 6);
     }
 
+    // Draw Dash / 10% Motion Afterimages
+    for (const ai of player.afterimages) {
+        ctx.save();
+        ctx.globalAlpha = ai.alpha;
+        drawRealisticStickman(ai.x, ai.y, player.weaponColor, player.facingAngle, player.walkAnim, 1.05, null, player.attackStyle === "gun", player.weaponColor, false);
+        ctx.restore();
+    }
+
     // Draw ALL Connected Online Players in the Global Server!
     Object.values(networkPlayers).forEach(rp => {
         drawRealisticStickman(
@@ -1610,7 +1823,8 @@ function draw() {
             rp.aura,
             rp.attackStyle === "gun",
             rp.wpnColor || "#ff5555",
-            rp.bossMotion
+            rp.bossMotion,
+            rp.cosmetic || "none"
         );
 
         ctx.fillStyle = "#00d2ff";
@@ -1646,13 +1860,14 @@ function draw() {
         player.race.aura,
         player.attackStyle === "gun",
         player.weaponColor,
-        player.bossMotionActive
+        player.bossMotionActive,
+        player.race.cosmetic
     );
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 12px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`Lv.${player.level} ${player.username} [${player.heroClass.name}]`, player.x, player.y - 30);
+    ctx.fillText(`Lv.${player.level} ${player.username} [${player.heroClass.name}]`, player.x, player.y - 32);
 
     for (const b of bullets) {
         ctx.save();
@@ -1677,6 +1892,7 @@ function draw() {
         ctx.fillText(ft.text, ft.x, ft.y);
     }
 
+    drawMinimapRadar();
     ctx.restore();
 }
 
@@ -1695,7 +1911,7 @@ if (hadSave) {
     document.getElementById('login-modal').style.display = 'none';
     initSingleGlobalServer();
     loadStage(currentStage);
-    showToast(`Auto-Connected to Global Server as ${player.username}!`);
+    showToast(`Welcome back, ${player.username}! Connected to Global Server.`);
 } else {
     document.getElementById('login-modal').style.display = 'flex';
     loadStage(1);
