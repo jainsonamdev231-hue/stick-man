@@ -1,7 +1,6 @@
 import http.server
 import socketserver
 import json
-import random
 import os
 
 PORT = 8000
@@ -44,10 +43,15 @@ class GameServerHandler(http.server.SimpleHTTPRequestHandler):
             username = data.get("username", "").strip()
             new_score = int(data.get("score", 0))
             players = load_players()
+            found = False
             for p in players:
-                if p["username"].lower() == username.lower() and new_score > p["score"]:
-                    p["score"] = new_score
+                if p["username"].lower() == username.lower():
+                    found = True
+                    if new_score > p["score"]:
+                        p["score"] = new_score
                     break
+            if not found and username:
+                players.append({"username": username, "score": new_score})
             save_players(players)
             self._send_json({"players": players})
 
@@ -62,5 +66,5 @@ class GameServerHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     with socketserver.TCPServer(("", PORT), GameServerHandler) as httpd:
-        print(f"Stickman Force 100 Server running at http://localhost:{PORT}")
+        print(f"Stickman Force 100 Ultimate Server running at http://localhost:{PORT}")
         httpd.serve_forever()
