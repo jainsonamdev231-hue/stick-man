@@ -2,7 +2,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
@@ -113,15 +113,18 @@ body {
     border-right: 2px solid #383b54;
     border-top: 1px solid #2b2d42;
     padding: 6px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .stage-info {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 13px;
+    gap: 8px;
+    font-size: 12.5px;
     font-weight: bold;
     color: #f1c40f;
+    flex-wrap: wrap;
 }
 
 .biome-tag {
@@ -136,9 +139,9 @@ body {
     background: #282b40;
     color: #fff;
     border: 1px solid #4e5275;
-    padding: 4px 12px;
+    padding: 5px 10px;
     border-radius: 5px;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: bold;
     cursor: pointer;
 }
@@ -163,7 +166,7 @@ body {
 
 .menu-btn {
     flex: 1;
-    min-width: 90px;
+    min-width: 85px;
     background: transparent;
     color: #ccc;
     border: none;
@@ -173,6 +176,7 @@ body {
     font-weight: bold;
     cursor: pointer;
     transition: 0.2s;
+    white-space: nowrap;
 }
 
 .menu-btn:hover { background: #25273d; color: #fff; }
@@ -197,17 +201,23 @@ canvas {
     cursor: crosshair;
 }
 
+/* Quest Tracker (Desktop Overlay + Mobile Full-Width Bar) */
 #quest-tracker {
     position: absolute;
     top: 12px;
     right: 12px;
-    background: rgba(14, 16, 28, 0.92);
+    background: rgba(14, 16, 28, 0.94);
     padding: 10px 14px;
     border-radius: 8px;
     border-left: 4px solid #f39c12;
-    width: 265px;
+    width: 270px;
+    max-width: 92%;
     pointer-events: none;
     box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    z-index: 12;
 }
 
 #quest-tracker.ready-claim {
@@ -217,13 +227,21 @@ canvas {
 
 #quest-tracker h4 {
     color: #f39c12;
-    font-size: 12px;
+    font-size: 12.5px;
     text-transform: uppercase;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
+    line-height: 1.3;
 }
 
 #quest-tracker.ready-claim h4 { color: #2ecc71; }
-#quest-tracker p { font-size: 12.5px; color: #e0e0e0; line-height: 1.35; }
+
+#quest-tracker p {
+    font-size: 13px;
+    color: #ffffff;
+    line-height: 1.4;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
 
 #series-banner {
     position: absolute;
@@ -232,18 +250,20 @@ canvas {
     transform: translateX(-50%);
     background: rgba(15, 15, 25, 0.94);
     border: 2px solid #f39c12;
-    padding: 6px 16px;
+    padding: 6px 14px;
     border-radius: 20px;
     display: flex;
-    gap: 14px;
+    gap: 10px;
     align-items: center;
-    font-size: 13px;
+    font-size: 12px;
     pointer-events: none;
+    white-space: nowrap;
+    z-index: 12;
 }
 
 .t-ally { color: #00d2ff; font-weight: bold; }
 .t-enemy { color: #e74c3c; font-weight: bold; }
-.t-mid { background: #f39c12; color: #111; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+.t-mid { background: #f39c12; color: #111; padding: 2px 8px; border-radius: 10px; font-size: 10.5px; font-weight: bold; }
 
 #controls-hint {
     position: absolute;
@@ -257,34 +277,52 @@ canvas {
     pointer-events: none;
 }
 
+/* NPC Dialogue Pop-Up */
 #dialogue-modal {
     position: absolute;
-    bottom: 22px;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    width: 92%;
-    max-width: 780px;
-    background: rgba(15, 16, 28, 0.96);
+    width: 94%;
+    max-width: 760px;
+    background: rgba(14, 16, 28, 0.98);
     border: 2px solid #f39c12;
     border-radius: 10px;
-    padding: 16px 20px;
+    padding: 16px 18px;
     display: none;
-    z-index: 15;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.85);
+    z-index: 100;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
-#dialogue-speaker { color: #f39c12; font-weight: bold; font-size: 16px; margin-bottom: 5px; }
-#dialogue-text { font-size: 14px; color: #ddd; line-height: 1.45; margin-bottom: 10px; }
+#dialogue-speaker {
+    color: #f39c12;
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 6px;
+}
+
+#dialogue-text {
+    font-size: 14px;
+    color: #ffffff;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
 
 .reward-banner {
     background: rgba(46, 204, 113, 0.18);
     border: 1px solid #2ecc71;
     color: #2ecc71;
-    padding: 7px 12px;
+    padding: 8px 12px;
     border-radius: 6px;
     font-weight: bold;
     font-size: 13px;
     margin-bottom: 12px;
+    line-height: 1.4;
 }
 
 .room-box {
@@ -299,11 +337,11 @@ canvas {
     background: #f39c12;
     color: #111;
     border: none;
-    padding: 9px 15px;
+    padding: 10px 16px;
     border-radius: 6px;
     font-weight: bold;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 13.5px;
     transition: 0.2s;
 }
 
@@ -319,12 +357,12 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(8, 9, 16, 0.92);
+    background: rgba(8, 9, 16, 0.94);
     display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    z-index: 20;
+    z-index: 90;
     padding: 14px;
     overflow-y: auto;
 }
@@ -342,8 +380,8 @@ canvas {
 }
 
 .wide-card { max-width: 720px; }
-.modal-title { color: #f1c40f; margin-bottom: 4px; font-size: 20px; }
-.modal-subtitle { font-size: 12.5px; color: #aaa; margin-bottom: 10px; }
+.modal-title { color: #f1c40f; margin-bottom: 4px; font-size: 19px; }
+.modal-subtitle { font-size: 12.5px; color: #aaa; margin-bottom: 10px; line-height: 1.4; }
 
 input[type="text"] {
     width: 100%;
@@ -363,7 +401,7 @@ input[type="text"] {
 .status-msg { color: #2ecc71; font-size: 13px; min-height: 18px; margin: 8px 0; font-weight: bold; }
 
 .spin-display {
-    font-size: 23px;
+    font-size: 22px;
     font-weight: bold;
     margin: 12px 0;
     padding: 16px;
@@ -401,7 +439,7 @@ input[type="text"] {
 
 .forge-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
     gap: 8px;
     max-height: 270px;
     overflow-y: auto;
@@ -447,21 +485,23 @@ input[type="text"] {
 .arena-btn span { font-size: 11px; color: #bbb; }
 
 #toast {
-    position: absolute;
-    top: 52px;
+    position: fixed;
+    top: 16px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 16, 26, 0.95);
+    background: rgba(15, 16, 26, 0.96);
     border: 1px solid #f1c40f;
     color: #fff;
-    padding: 8px 18px;
+    padding: 8px 16px;
     border-radius: 25px;
     font-weight: bold;
-    font-size: 13px;
+    font-size: 12.5px;
     display: none;
-    z-index: 25;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+    z-index: 2000;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
     pointer-events: none;
+    max-width: 92vw;
+    text-align: center;
 }
 
 .mobile-controls {
@@ -469,11 +509,11 @@ input[type="text"] {
     justify-content: space-between;
     align-items: center;
     background: #181826;
-    padding: 10px 14px;
+    padding: 10px 12px;
     border: 2px solid #383b54;
     border-top: none;
     border-radius: 0 0 10px 10px;
-    gap: 10px;
+    gap: 8px;
 }
 
 .dpad { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -485,15 +525,15 @@ input[type="text"] {
     color: #fff;
     border: 1px solid #444;
     border-radius: 8px;
-    padding: 10px 13px;
-    font-size: 12px;
+    padding: 10px 12px;
+    font-size: 11.5px;
     font-weight: bold;
     cursor: pointer;
     touch-action: none;
 }
 
 .t-btn:active { background: #f39c12; color: #111; }
-.atk-btn { background: #c0392b; border-color: #e74c3c; padding: 12px 16px; }
+.atk-btn { background: #c0392b; border-color: #e74c3c; padding: 12px 15px; }
 .talk-btn { background: #27ae60; border-color: #2ecc71; }
 .dash-btn { background: #2980b9; border-color: #3498db; }
 .mode-btn { background: #1f4788; }
@@ -542,7 +582,56 @@ input[type="text"] {
 
 .hidden { display: none !important; }
 
+/* ================= MOBILE PORTRAIT MODE FIXES (WITHOUT DESKTOP MODE) ================= */
 @media (max-width: 768px) {
-    .leaderboard-panel { max-width: 100%; }
-    #controls-hint { display: none; }
+    .leaderboard-panel {
+        max-width: 100%;
+    }
+    #controls-hint {
+        display: none;
+    }
+    #game-wrapper {
+        display: flex;
+        flex-direction: column;
+        aspect-ratio: auto;
+        height: auto;
+    }
+    canvas {
+        width: 100%;
+        aspect-ratio: 850 / 500;
+        height: auto;
+    }
+    /* Dock Quest Tracker cleanly above the canvas on phones so no text is ever cut off */
+    #quest-tracker {
+        position: relative;
+        top: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 0;
+        border-left: none;
+        border-bottom: 2px solid #f39c12;
+        padding: 8px 12px;
+        order: -1;
+    }
+    #quest-tracker.ready-claim {
+        border-bottom-color: #2ecc71;
+    }
+    /* Float NPC Dialogue & Modals over the whole phone screen so they never clip */
+    #dialogue-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        bottom: auto;
+        transform: translate(-50%, -50%);
+        width: 92vw;
+        max-height: 82vh;
+        overflow-y: auto;
+        z-index: 1500;
+    }
+    .full-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1400;
+    }
 }
